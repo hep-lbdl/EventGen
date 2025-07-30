@@ -363,6 +363,22 @@ class SkimEvents(
         df.to_hdf(self.output()["events"].path, key="events")
 
 
+class ProdEventsHHManual(law.ExternalTask):
+    def output(self):
+        return {
+            "tmp": {
+                "events": law.LocalFileTarget(
+                    "/pscratch/sd/d/dnoll/projects/haxad/EventGenDelphes/output/tmp/hh_pythia/Events/run_01_decayed_1/out.root"
+                ),
+            }
+        }
+
+
+class SkimEventsHHManual(SkimEvents):
+    def requires(self):
+        return ProdEventsHHManual.req(self)
+
+
 class PlotEvents(SkimEvents):
     def requires(self):
         return SkimEvents.req(self)
@@ -384,6 +400,68 @@ class PlotEvents(SkimEvents):
         # Save plot
         self.output().parent.touch()
         plt.savefig(self.output().path)
+
+
+class PlotEventsHHManual(PlotEvents):
+    def requires(self):
+        return {
+            "eventgen": SkimEvents.req(self, process="HH", version="prod_6"),
+            "manual": SkimEventsHHManual.req(self),
+        }
+
+    def output(self):
+        return self.local_directory_target("plots")
+
+    def run(self):
+        import numpy as np
+        from matplotlib.backends.backend_pdf import PdfPages
+
+        # Read the DataFrame from the HDF5 file
+        eventgen = pd.read_hdf(
+            self.input()["eventgen"]["events"].path, key="events"
+        ).astype(float)
+        manual = pd.read_hdf(
+            self.input()["manual"]["events"].path, key="events"
+        ).astype(float)
+
+        # Make plots of each feature
+        self.output().touch()
+        with PdfPages(self.output().path + "/all_plots.pdf") as pdf:
+
+            for feature in eventgen.columns:
+                plt.figure(figsize=(8, 12))
+                ax1 = plt.subplot(2, 1, 1)
+                h_eventgen, bins, __ = plt.hist(
+                    eventgen[feature],
+                    bins=20,
+                    alpha=0.7,
+                    label="Eventgen",
+                    color="tab:blue",
+                )
+                plt.errorbar(
+                    (bins[1:] + bins[:-1]) / 2,
+                    h_eventgen,
+                    yerr=np.sqrt(h_eventgen),
+                    fmt="none",
+                    color="tab:blue",
+                )
+                h_manual, bins, __ = plt.hist(
+                    manual[feature],
+                    bins=bins,
+                    alpha=0.7,
+                    label="Manual",
+                    color="tab:orange",
+                )
+                plt.legend()
+                plt.subplot(2, 1, 2, sharex=ax1)
+                plt.plot(
+                    (bins[1:] + bins[:-1]) / 2,
+                    (h_eventgen - h_manual) / (h_eventgen + h_manual),
+                )
+                plt.xlabel(feature)
+                plt.tight_layout()
+                pdf.savefig()
+                plt.close()
 
 
 class PlotEventsWrapper(BaseTask, law.WrapperTask):
