@@ -79,17 +79,21 @@ class DetectorMixin:
         return sp + (self.detector,)
 
     @property
-    def detector_config_dir(self):
-        return f"{os.getenv('GEN_CODE')}/config/cards"
-
-    @property
     def detector_config_file(self):
         return f"delphes_card_{self.detector}.tcl"
 
     @property
     def detector_config(self):
-        return f"{self.detector_config_dir}/{self.detector_config_file}"
-
+        user_config = f"{os.getenv('GEN_CODE')}/config/cards/{self.detector_config_file}"
+        default_config = f"{os.getenv('DELPHES_DIR')}/cards/{self.detector_config_file}"
+        if os.path.exists(user_config):
+            return user_config
+        elif os.path.exists(default_config):
+            return default_config
+        else:
+            raise FileNotFoundError(
+                f"Detector configuration file not found: {self.detector_config_file}"
+            )
 
 class ProcessorMixin:
     processor = law.Parameter(default="test")
