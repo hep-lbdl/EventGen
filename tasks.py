@@ -351,9 +351,7 @@ class SkimEvents(
         inputs = self.input()
         # Get FSet
         fset = {
-            "all": {
-                "files": {inp["events"].path: "Delphes" for inp in inputs.values()}
-            }
+            "all": {"files": {inp["events"].path: "Delphes" for inp in inputs.values()}}
         }
 
         # Start Preprocessing
@@ -370,7 +368,7 @@ class SkimEvents(
         cluster = self.start_cluster(len(inputs))
         with Client(cluster) as client:
             (output,) = dask.compute(to_compute)
-        
+
         output = output["all"]
 
         # Write cutflow to json
