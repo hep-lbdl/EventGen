@@ -37,10 +37,26 @@ class Processor(processor.ProcessorABC):
                 "phi": jets.phi,
                 "mass": jets.mass,
                 "charge": ak.zeros_like(jets.pt),
+                "BTagPhys": jets.BTagPhys,
             },
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
+
+        fatjets = pad(events.FatJet, 2)
+        fatjets = ak.zip(
+            {
+                "pt": fatjets.pt,
+                "eta": fatjets.eta,
+                "phi": fatjets.phi,
+                "mass": fatjets.mass,
+                "charge": ak.zeros_like(fatjets.pt),
+                "BTagPhys": fatjets.BTagPhys,
+            },
+            with_name="PtEtaPhiMCandidate",
+            behavior=candidate.behavior,
+        )
+        fatjets_btag = ak.fill_none(fatjets.BTagPhys, np.nan)
 
         dijet_mass = (jets[:, 0] + jets[:, 1]).m
         dijet_delta_r = jets[:, 0].delta_r(jets[:, 1])
@@ -53,6 +69,7 @@ class Processor(processor.ProcessorABC):
         # misc event features
         n_photons = ak.num(events.Photon)
         n_jets = ak.num(events.Jet)
+        n_fatjets = ak.num(events.FatJet)
         event_weight = events.Event.Weight
         event_number = events.Event.Number
 
@@ -120,11 +137,25 @@ class Processor(processor.ProcessorABC):
                     "jet1_eta": jets.eta[:, 0][good],
                     "jet1_phi": jets.phi[:, 0][good],
                     "jet1_m": scale(jets.m[:, 0])[good],
+                    "jet1_btag": jets.BTagPhys[:, 0][good],
                     # jet 2
                     "jet2_pt": scale(jets.pt[:, 1])[good],
                     "jet2_eta": jets.eta[:, 1][good],
                     "jet2_phi": jets.phi[:, 1][good],
                     "jet2_m": scale(jets.m[:, 1])[good],
+                    "jet2_btag": jets.BTagPhys[:, 1][good],
+                    # fatjet 1
+                    "fatjet1_pt": scale(fatjets.pt[:, 0])[good],
+                    "fatjet1_eta": fatjets.eta[:, 0][good],
+                    "fatjet1_phi": fatjets.phi[:, 0][good],
+                    "fatjet1_m": scale(fatjets.m[:, 0])[good],
+                    "fatjet1_btag": fatjets_btag[:, 0][good],
+                    # fatjet 2
+                    "fatjet2_pt": scale(fatjets.pt[:, 1])[good],
+                    "fatjet2_eta": fatjets.eta[:, 1][good],
+                    "fatjet2_phi": fatjets.phi[:, 1][good],
+                    "fatjet2_m": scale(fatjets.m[:, 1])[good],
+                    "fatjet2_btag": fatjets_btag[:, 1][good],
                     # leptons
                     "has_lepton": has_lepton[good],
                     # met
@@ -132,6 +163,7 @@ class Processor(processor.ProcessorABC):
                     # misc features
                     "n_photon": n_photons[good],
                     "n_jet": n_jets[good],
+                    "n_fatjet": n_fatjets[good],
                     "event_weight": event_weight[good],
                     "event_number": event_number[good],
                 }
