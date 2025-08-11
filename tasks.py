@@ -48,10 +48,11 @@ class BaseTask(law.Task):
 
 class ProcessMixin:
     process = law.Parameter(default="test")
+    ecm = luigi.FloatParameter(default=13000.0)
 
     def store_parts(self):
         sp = super().store_parts()
-        return sp + (self.process,)
+        return sp + (self.process, f"ecm_{self.ecm:.2f}")
 
     @property
     def process_config_dir(self):
@@ -190,6 +191,9 @@ class Madgraph(
                 "NEVENTS_PLACEHOLDER", str(int(n_events))
             )
             madgraph_config = madgraph_config.replace(
+                "EBEAM_PLACEHOLDER", str(self.ecm / 2)
+            )
+            madgraph_config = madgraph_config.replace(
                 "OUTPUT_PLACEHOLDER", madgraph_target.path
             )
             config_target.dump(madgraph_config, formatter="text")
@@ -278,6 +282,7 @@ class DelphesPythia8(
             pythia_config = pythia_config.replace(
                 "NEVENTS_PLACEHOLDER", str(int(n_events))
             )
+            pythia_config = pythia_config.replace("ECM_PLACEHOLDER", str(self.ecm))
 
             if self.has_madgraph_config:
                 madgraph_events = self.input()["madgraph"][identifier]["events"].path

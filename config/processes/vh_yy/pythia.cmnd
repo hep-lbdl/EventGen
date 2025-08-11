@@ -16,7 +16,7 @@ Next:numberShowEvent = 0            ! Disable event record printout
 ! 3) Beam parameter settings. Values below agree with default ones.
 Beams:idA = 2212                    ! first beam, p = 2212, pbar = -2212
 Beams:idB = 2212                    ! second beam, p = 2212, pbar = -2212
-Beams:eCM = 14000.                  ! CM energy of collision
+Beams:eCM = ECM_PLACEHOLDER         ! CM energy of collision
 
 ! 4) Settings for the hard-process generation.
 HiggsSM:ffbar2HZ = on               ! Higgs production in association with a Z boson
