@@ -1,0 +1,40 @@
+#************************************************************
+#*                        MadGraph 5                        *
+#*                                                          *
+#*                *                       *                 *
+#*                  *        * *        *                   *
+#*                    * * * * 5 * * * *                     *
+#*                  *        * *        *                   *
+#*                *                       *                 *
+#*                                                          *
+#*                                                          *
+#*    The MadGraph Development Team - Please visit us at    *
+#*    https://server06.fynu.ucl.ac.be/projects/madgraph     *
+#*                                                          *
+#************************************************************
+#*                                                          *
+#*               Command File for MadGraph 5                *
+#*                                                          *
+#*     run as ./bin/mg5  filename                           *
+#*                                                          *
+#************************************************************
+import model sm
+# Define multiparticle labels
+define p = g u c d s u~ c~ d~ s~
+
+# Specify process(es) to run
+generate p p > a a
+add process p p > a a j
+add process p p > a a j j
+add process p p > a a j j j
+
+output OUTPUT_PLACEHOLDER
+launch
+
+set nevents NEVENTS_PLACEHOLDER
+set ebeam1 7000
+set ebeam2 7000
+
+# minimum photon pT
+# efficiency of yy processor -> 12%
+set ptgmin 32
