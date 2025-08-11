@@ -55,7 +55,7 @@ class ProcessMixin:
 
     @property
     def process_config_dir(self):
-        return f"{os.getenv('GEN_CODE')}/config/{self.process}"
+        return f"{os.getenv('GEN_CODE')}/config/processes/{self.process}"
 
     @property
     def madgraph_config_file(self):
@@ -79,7 +79,7 @@ class DetectorMixin:
 
     @property
     def detector_config_dir(self):
-        return f"{os.getenv('DELPHES_DIR')}/cards"
+        return f"{os.getenv('GEN_CODE')}/config/cards"
 
     @property
     def detector_config_file(self):
