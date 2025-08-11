@@ -255,7 +255,10 @@ class DelphesPythia8(
 
     @property
     def executable(self):
-        return f"DelphesPythia8"
+        if shutil.which("DelphesPythia8"):
+            return "DelphesPythia8"
+        else:
+            raise Exception("Did you activate the 'eventgen' conda env?")
 
     @staticmethod
     def call_with_output(cmd, out_path):
