@@ -104,5 +104,5 @@ We can see, that the workflow executed all necessary steps, such as using madgra
 Madgraph creates a file named `py.py` in the directory in which the execution takes place. This file does not seem to cause any problems even when running many madgraph processes simultaneously. Please find a discussion about it [here](https://answers.launchpad.net/mg5amcnlo/+question/679610).
 
 ## Extra:
-The current version of madgraph doesn't work in an environment which has root installed.
+The current version of madgraph can't produce NLO processes in the environment which has root installed.
 Therefore, we currently have two different software environments: `madgraph.yml` for Madgraph, and `eventgen.yml` for all the rest.
