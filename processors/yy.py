@@ -42,8 +42,15 @@ class Processor(processor.ProcessorABC):
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
+        dijet_mass = (jets[:, 0] + jets[:, 1]).m
+        dijet_delta_r = jets[:, 0].delta_r(jets[:, 1])
+        ht_30 = ak.sum(events.Jet.pt[events.Jet.pt > 30], axis=-1)
 
         fatjets = pad(events.FatJet, 2)
+        fatjets_btag = ak.fill_none(fatjets.BTagPhys, np.nan)
+        fatjets_tau = ak.pad_none(fatjets.Tau_5, target=4, clip=True, axis=-1)
+        fatjets_tau32 = fatjets_tau[:, :, 2] / fatjets_tau[:, :, 1]
+        fatjets_tau43 = fatjets_tau[:, :, 3] / fatjets_tau[:, :, 2]
         fatjets = ak.zip(
             {
                 "pt": fatjets.pt,
@@ -56,11 +63,6 @@ class Processor(processor.ProcessorABC):
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
-        fatjets_btag = ak.fill_none(fatjets.BTagPhys, np.nan)
-
-        dijet_mass = (jets[:, 0] + jets[:, 1]).m
-        dijet_delta_r = jets[:, 0].delta_r(jets[:, 1])
-        ht_30 = ak.sum(events.Jet.pt[events.Jet.pt > 30], axis=-1)
 
         has_lepton = (ak.num(events.Muon) > 0) | (ak.num(events.Electron) > 0)
 
@@ -150,12 +152,16 @@ class Processor(processor.ProcessorABC):
                     "fatjet1_phi": fatjets.phi[:, 0][good],
                     "fatjet1_m": scale(fatjets.m[:, 0])[good],
                     "fatjet1_btag": fatjets_btag[:, 0][good],
+                    "fatjet1_tau32": fatjets_tau32[:, 0][good],
+                    "fatjet1_tau43": fatjets_tau43[:, 0][good],
                     # fatjet 2
                     "fatjet2_pt": scale(fatjets.pt[:, 1])[good],
                     "fatjet2_eta": fatjets.eta[:, 1][good],
                     "fatjet2_phi": fatjets.phi[:, 1][good],
                     "fatjet2_m": scale(fatjets.m[:, 1])[good],
                     "fatjet2_btag": fatjets_btag[:, 1][good],
+                    "fatjet2_tau32": fatjets_tau32[:, 1][good],
+                    "fatjet2_tau43": fatjets_tau43[:, 1][good],
                     # leptons
                     "has_lepton": has_lepton[good],
                     # met
