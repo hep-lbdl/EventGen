@@ -58,6 +58,14 @@ class ProcessMixin:
     @property
     def process_config_dir(self):
         return f"{os.getenv('GEN_CODE')}/config/processes/{self.process}"
+    
+    @property
+    def common_model_dir(self): # used to load common UFO models -- no need to copy every time
+        return f"{os.getenv('GEN_CODE')}/config/models"
+    
+    @property
+    def common_param_dir(self): # used to load common param_card (e.g. decay width) -- no need to copy every time
+        return f"{os.getenv('GEN_CODE')}/config/params"
 
     @property
     def madgraph_config_file(self):
@@ -200,6 +208,12 @@ class Madgraph(
             )
             madgraph_config = madgraph_config.replace(
                 "OUTPUT_PLACEHOLDER", madgraph_target.path
+            )
+            madgraph_config = madgraph_config.replace(
+                "MODEL_PLACEHOLDER", self.common_model_dir
+            )
+            madgraph_config = madgraph_config.replace(
+                "PARAM_PLACEHOLDER", self.common_param_dir
             )
             config_target.dump(madgraph_config, formatter="text")
             cmd = [self.executable, "-f", config_target.path]
