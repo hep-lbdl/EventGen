@@ -1,0 +1,30 @@
+# RPVMSSM chihneul model
+# References:
+# https://arxiv.org/abs/1601.03737
+# Current estimate of cross-section: xxx pb (LO only)
+# note the shipped RPVMSSM_UFO can some issue, rename the modified version to RPVMSSM_UFO_AM
+import model MODEL_PLACEHOLDER/RPVMSSM_UFO_AM
+
+# Define multiparticle labels
+define x1 = x1+ x1-
+
+# LO only
+define susystrong = go ul ur dl dr cl cr sl sr t1 t2 b1 b2 ul~ ur~ dl~ dr~ cl~ cr~ sl~ sr~ t1~ t2~ b1~ b2~
+generate p p > x1 n1 / susystrong
+# optional N jets (remain later since very slow)
+# add process p p > x1 n1 j / susystrong
+# generate p p > x1 n1 j j / susystrong
+
+output OUTPUT_PLACEHOLDER
+launch
+
+set nevents NEVENTS_PLACEHOLDER
+
+# H decay not included in this UFO, instead, modify the decay table
+PARAM_PLACEHOLDER/RPV_C1Hl_N1WlZvHv.dat
+set param_card mass 25 125
+set param_card mass 1000022 200
+set param_card mass 1000024 200
+
+set ebeam1 7000
+set ebeam2 7000
