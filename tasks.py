@@ -415,15 +415,21 @@ class PlotEvents(SkimEvents):
 
 class PlotEventsWrapper(BaseTask, law.WrapperTask):
     def requires(self):
+        config = dict(
+            detector="ATLAS_fatjet",
+            processor="yy",
+            ecm=13000.0,
+        )
         return [
-            PlotEvents.req(self, process="nonres_yy_jjj", processor="yy", n_events=3e7),
-            PlotEvents.req(self, process="ggh_yy", processor="yy", n_events=2e6),
-            PlotEvents.req(self, process="ttH_yy", processor="yy", n_events=2e6),
-            PlotEvents.req(self, process="vbf_yy", processor="yy", n_events=2e6),
-            PlotEvents.req(self, process="vh_yy", processor="yy", n_events=2e6),
-            PlotEvents.req(self, process="WN_HyyN_150", processor="yy", n_events=1e6),
-            PlotEvents.req(self, process="WN_HyyN_200", processor="yy", n_events=1e7),
-            PlotEvents.req(self, process="WN_HyyN_300", processor="yy", n_events=1e6),
-            PlotEvents.req(self, process="WN_HyyN_600", processor="yy", n_events=1e6),
-            PlotEvents.req(self, process="TT_tZNtHyyN", processor="yy", n_events=1e6),
+            PlotEvents.req(self, process="nonres_yy_jjj", n_events=3e7, **config),
+            PlotEvents.req(self, process="ggh_yy", n_events=2e6, **config),
+            PlotEvents.req(self, process="ttH_yy", n_events=2e6, **config),
+            PlotEvents.req(self, process="vbf_yy", n_events=2e6, **config),
+            PlotEvents.req(self, process="vh_yy", n_events=2e6, **config),
+            PlotEvents.req(self, process="WN_HyyN_150", n_events=1e6, **config),
+            PlotEvents.req(self, process="WN_HyyN_200", n_events=1e6, **config),
+            PlotEvents.req(self, process="WN_HyyN_300", n_events=1e6, **config),
+            PlotEvents.req(self, process="WN_HyyN_600", n_events=1e6, **config),
+            PlotEvents.req(self, process="HH", n_events=5e6, **config),
+            PlotEvents.req(self, process="XSH_500_100", n_events=1e6, **config),
         ]
