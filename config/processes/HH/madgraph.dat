@@ -1,7 +1,7 @@
 # HH production
 import model loop_sm
 
-generate g g > h h QED<=2 [noborn=QCD]
+generate p p > h h QED<=2 [noborn=QCD]
 
 output OUTPUT_PLACEHOLDER
 launch
