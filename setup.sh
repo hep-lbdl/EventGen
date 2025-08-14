@@ -2,7 +2,7 @@
 action() {
     # Set version of used software
     local madgraph_download_dir="https://launchpad.net/mg5amcnlo/3.0/3.6.x/+download"
-    local madgraph_download_file="MG5_aMC_v3.6.3"
+    local madgraph_download_file="MG5_aMC_v3.5.9"
 
     # Set main directories
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
@@ -69,17 +69,17 @@ action() {
     # If conda env "madgraph" does not exist create it
     if ! conda env list | grep -q '^madgraph'; then
         mamba create --name madgraph
-        mamba env update -n madgraph --file madgraph.yml
+        mamba env update -n madgraph --file madgraph.yml -y
     fi
 
     # If conda env "eventgen" does not exist create it
     if ! conda env list | grep -q '^eventgen'; then
         mamba create --name eventgen
-        mamba env update -n eventgen --file eventgen.yml
+        mamba env update -n eventgen --file eventgen.yml -y
     fi
 
     # Activate conda environment eventgen
-    conda activate eventgen
+    conda activate madgraph
 
     # law setup
     source "$( law completion )" ""
