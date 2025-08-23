@@ -430,6 +430,6 @@ class PlotEventsWrapper(BaseTask, law.WrapperTask):
             PlotEvents.req(self, process="WN_HyyN_200", n_events=1e6, **config),
             PlotEvents.req(self, process="WN_HyyN_300", n_events=1e6, **config),
             PlotEvents.req(self, process="WN_HyyN_600", n_events=1e6, **config),
-            PlotEvents.req(self, process="HH", n_events=5e6, **config),
             PlotEvents.req(self, process="XSH_500_100", n_events=1e6, **config),
+            PlotEvents.req(self, process="XSH_750_100_ll", n_events=1e6, **config),
         ]
