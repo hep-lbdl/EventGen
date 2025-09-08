@@ -355,6 +355,9 @@ class SkimEvents(
     qos = "shared"
     arch = "cpu"
 
+
+    step_size = luigi.IntParameter(default=0)
+
     def requires(self):
         return DelphesPythia8.req(self)
 
@@ -373,7 +376,10 @@ class SkimEvents(
         }
 
         # Start Preprocessing
-        dataset_runnable, _ = preprocess(fset)
+        if self.step_size > 0:
+            dataset_runnable, _ = preprocess(fset,step_size=self.step_size)
+        else:
+            dataset_runnable, _ = preprocess(fset)  
 
         # Apply to Fileset
         to_compute = apply_to_fileset(

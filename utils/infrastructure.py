@@ -66,6 +66,9 @@ class ClusterMixin:
         # Set up the SLURM cluster
         if self.cluster_mode == "local":
             cluster = LocalCluster()
+        if self.cluster_mode == "fullnode": 
+            # should run on allocated interactive node and we use all resources
+            cluster = LocalCluster(32,threads_per_worker=8,memory_limit="12GiB") # use extra thread for IO or potential MT speedup, leave some mem for system and temp swap
         elif self.cluster_mode == "slurm":
             cluster = SLURMCluster(
                 cores=self.cores,
