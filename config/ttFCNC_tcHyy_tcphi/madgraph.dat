@@ -1,0 +1,26 @@
+# FCNC pp->tt(cH) model (left-handed)
+# References: 
+# https://arxiv.org/pdf/1712.02399
+# Table 2 here: https://arxiv.org/pdf/2301.10486
+# Current estimate of cross-section:  pb
+import model MODEL_PLACEHOLDER/TopFCNC-onlyh
+
+# Specify process(es) to run
+define mt = t t~
+define mw = w+ w-
+define mb = b b~
+define cquark = c c~
+define lep = l+ l- ta+ ta- vl vl~
+generate p p > t t~, (mt > mb mw, mw > lep lep), (mt > cquark h)
+add process p p > t t~, (mt > mb mw, mw > j j), (mt > cquark h)
+
+output OUTPUT_PLACEHOLDER
+launch
+
+set nevents NEVENTS_PLACEHOLDER
+
+PARAM_PLACEHOLDER/ttFCNC_tcHyy_tcphi.dat
+set param_card mass 25 125
+
+set ebeam1 7000
+set ebeam2 7000
