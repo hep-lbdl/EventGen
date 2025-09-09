@@ -19,7 +19,7 @@ launch
 
 set nevents NEVENTS_PLACEHOLDER
 
-PARAM_PLACEHOLDER/ttFCNC_tuHyy_tphi.dat
+PARAM_PLACEHOLDER/ttFCNC_tuH_tphi.dat
 set param_card mass 25 125
 
 set ebeam1 7000
