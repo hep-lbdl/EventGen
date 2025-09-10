@@ -20,7 +20,7 @@ launch
 
 set nevents NEVENTS_PLACEHOLDER
 
-# H decay not included in this UFO, instead, modify the decay table
+# Higgs-lepton coupling not included in UFO thus not able to decay x1 and n1 directly. use decya table
 PARAM_PLACEHOLDER/RPV_C1Hl.dat
 set param_card mass 25 125
 set param_card mass 1000024 150
