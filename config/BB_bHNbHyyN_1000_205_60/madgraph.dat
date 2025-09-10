@@ -1,0 +1,27 @@
+# MSSM sbottom sbottom model
+# References:
+# https://atlas.web.cern.ch/Atlas/GROUPS/PHYSICS/PAPERS/SUSY-2018-31/
+# Current estimate of cross-section: xxx pb (LO only)
+import model MSSM_SLHA2
+
+# Define multiparticle labels
+define susylq = ul ur dl dr cl cr sl sr
+define susylq~ = ul~ ur~ dl~ dr~ cl~ cr~ sl~ sr~
+# Specify process(es) to run
+generate p p > b1 b1~ $ go susylq susylq~ b2 t1 t2 b2~ t1~ t2~, (b1~ > n2 b~, n2 > n1 h01), (b1 > n2 b, n2 > n1 h01)
+# optional N jets (remain later since very slow)
+# add process p p > b1 b1~ j $ go susylq susylq~ b2 t1 t2 b2~ t1~ t2~
+# add process p p > b1 b1~ j j $ go susylq susylq~ b2 t1 t2 b2~ t1~ t2~
+
+output OUTPUT_PLACEHOLDER
+launch
+
+set nevents NEVENTS_PLACEHOLDER
+
+set param_card mass 25 125
+set param_card mass 1000005 1000
+set param_card mass 1000023 205
+set param_card mass 1000022 60
+
+set ebeam1 7000
+set ebeam2 7000
