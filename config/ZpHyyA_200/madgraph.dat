@@ -1,0 +1,24 @@
+# FCNC pp->tH model (u coupling, left-handed)
+# References: 
+# https://arxiv.org/pdf/1712.02399
+# Table 2 here: https://arxiv.org/pdf/2301.10486
+# Current estimate of cross-section:  pb
+import model MODEL_PLACEHOLDER/ZpHA
+
+# Specify process(es) to run
+define q = u c d s b u~ c~ d~ s~ b~
+define p = g u c d s b u~ c~ d~ s~ b~
+define j = g u c d s b u~ c~ d~ s~ b~
+generate p p > y1 > h a
+
+output OUTPUT_PLACEHOLDER
+launch
+
+set nevents NEVENTS_PLACEHOLDER
+
+set param_card mass 25 125
+set param_card mass 5000001 200
+set width 5000001 0.0042
+
+set ebeam1 7000
+set ebeam2 7000
