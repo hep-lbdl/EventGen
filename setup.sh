@@ -68,14 +68,14 @@ action() {
 
     # If conda env "madgraph" does not exist create it
     if ! conda env list | grep -q '^madgraph'; then
-        mamba create --name madgraph
-        mamba env update -n madgraph --file madgraph.yml -y
+        yes | conda create --name madgraph
+        yes | conda env update -n madgraph --file madgraph.yml
     fi
 
     # If conda env "eventgen" does not exist create it
     if ! conda env list | grep -q '^eventgen'; then
-        mamba create --name eventgen
-        mamba env update -n eventgen --file eventgen.yml -y
+        yes | conda create --name eventgen
+        yes | conda env update -n eventgen --file eventgen.yml
     fi
 
     # Activate conda environment eventgen
