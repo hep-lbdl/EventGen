@@ -23,5 +23,5 @@ set param_card mass 1000005 500
 set param_card mass 1000023 180
 set param_card mass 1000022 50
 
-set ebeam1 7000
-set ebeam2 7000
+set ebeam1 EBEAM_PLACEHOLDER
+set ebeam2 EBEAM_PLACEHOLDER

@@ -25,5 +25,5 @@ PARAM_PLACEHOLDER/RPV_C1Hl.dat
 set param_card mass 25 125
 set param_card mass 1000024 450
 
-set ebeam1 7000
-set ebeam2 7000
+set ebeam1 EBEAM_PLACEHOLDER
+set ebeam2 EBEAM_PLACEHOLDER
