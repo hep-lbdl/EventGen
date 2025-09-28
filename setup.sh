@@ -2,7 +2,7 @@
 action() {
     # Set version of used software
     local madgraph_download_dir="https://launchpad.net/mg5amcnlo/3.0/3.6.x/+download"
-    local madgraph_download_file="MG5_aMC_v3.5.9"
+    local madgraph_download_file="MG5_aMC_v3.5.11"
 
     # Set main directories
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
