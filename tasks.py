@@ -12,6 +12,7 @@ from coffea.dataset_tools import (
     preprocess,
 )
 from matplotlib import pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import dask
 from dask.distributed import Client
 from dask import delayed
