@@ -338,7 +338,7 @@ class SkimEvents(
     # Using only one core as task will be IO limited
     cores = 1
     memory = "5GB"
-    walltime = "00:05:00"
+    walltime = "01:00:00"
     qos = "shared"
     arch = "cpu"
 
@@ -420,6 +420,27 @@ class PlotEventsWrapper(BaseTask, law.WrapperTask):
         config = dict(
             detector="ATLAS_fatjet",
             processor="yy",
+            ecm=13000.0,
+        )
+        return [
+            PlotEvents.req(self, process="nonres_yy_jjj", n_events=3e7, **config),
+            PlotEvents.req(self, process="ggh_yy", n_events=2e6, **config),
+            PlotEvents.req(self, process="ttH_yy", n_events=2e6, **config),
+            PlotEvents.req(self, process="vbf_yy", n_events=2e6, **config),
+            PlotEvents.req(self, process="vh_yy", n_events=2e6, **config),
+            PlotEvents.req(self, process="WN_HyyN_150", n_events=1e6, **config),
+            PlotEvents.req(self, process="WN_HyyN_200", n_events=1e6, **config),
+            PlotEvents.req(self, process="WN_HyyN_300", n_events=1e6, **config),
+            PlotEvents.req(self, process="WN_HyyN_600", n_events=1e6, **config),
+            PlotEvents.req(self, process="XSH_500_100", n_events=1e6, **config),
+            PlotEvents.req(self, process="XSH_750_100_ll", n_events=1e6, **config),
+        ]
+
+class PlotEventsContrastiveWrapper(BaseTask, law.WrapperTask):
+    def requires(self):
+        config = dict(
+            detector="ATLAS_fatjet",
+            processor="contrastive",
             ecm=13000.0,
         )
         return [
