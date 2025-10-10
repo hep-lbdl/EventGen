@@ -398,19 +398,20 @@ class PlotEvents(SkimEvents):
         return self.local_directory_target("plots.pdf")
 
     def run(self):
-        # Read the DataFrame from the HDF5 file
         df = pd.read_hdf(self.input()["events"].path, key="events")
 
-        # Plot the Dataframe
-        df.hist(figsize=(15, 8), log=True)
-        plt.suptitle(
-            f"Process {self.process} @ {self.detector} using {self.processor} processor"
-        )
-        plt.tight_layout()
-
-        # Save plot
+        # Save plots
         self.output().parent.touch()
-        plt.savefig(self.output().path)
+        with PdfPages(self.output().path) as pdf:
+            for column in df.columns:
+                fig, ax = plt.subplots()
+                plt.hist(df[column], bins=50, alpha=0.7)
+                plt.title(f"Process {self.process} @ {self.detector} using {self.processor} proc.")
+                
+                plt.xlabel(column)
+                plt.ylabel('Entries')
+                plt.tight_layout()
+                pdf.savefig()
 
 
 class PlotEventsWrapper(BaseTask, law.WrapperTask):
