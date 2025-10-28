@@ -391,6 +391,136 @@ class SkimEvents(
         df.to_hdf(self.output()["events"].path, key="events")
 
 
+class CompareXSH(SkimEvents):
+    def requires(self):
+        config = dict(
+            processor="yy",
+            ecm=13000.0,
+            n_events=3000,
+        )
+        return {
+            "nonres_yy_jjj": SkimEvents.req(
+                self, process="nonres_yy_jjj", detector="CMS", **config
+            ),
+            # "xsh_500_100": SkimEvents.req(
+            #     self, process="XSH_500_100", detector="CMS", **config
+            # ),
+            "xsh_1000_500_CMS": SkimEvents.req(
+                self, process="XSH_1000_500", detector="CMS", **config
+            ),
+            "xsh_1000_500_ATLAS": SkimEvents.req(
+                self, process="XSH_1000_500", detector="ATLAS_fatjet", **config
+            ),
+            "xsh_1000_500_ll_CMS": SkimEvents.req(
+                self, process="XSH_1000_500_ll", detector="CMS", **config
+            ),
+            "xsh_1000_500_ll_ATLAS": SkimEvents.req(
+                self, process="XSH_1000_500_ll", detector="ATLAS_fatjet", **config
+            ),
+            "xsh_750_100_ll_CMS": SkimEvents.req(
+                self, process="XSH_750_100_ll", detector="CMS", **config
+            ),
+            "xsh_750_100_ll_ATLAS": SkimEvents.req(
+                self, process="XSH_750_100_ll", detector="ATLAS_fatjet", **config
+            ),
+        }
+
+    def output(self):
+        return self.local_directory_target("comparison")
+
+    def run(self):
+        nonres_yy_jjj = pd.read_hdf(self.input()["nonres_yy_jjj"]["events"].path, key="events")
+        # xsh_500_100 = pd.read_hdf(self.input()["xsh_500_100"]["events"].path, key="events")
+        xsh_1000_500_CMS = pd.read_hdf(self.input()["xsh_1000_500_CMS"]["events"].path, key="events")
+        xsh_1000_500_ATLAS = pd.read_hdf(self.input()["xsh_1000_500_ATLAS"]["events"].path, key="events")
+        xsh_1000_500_ll_CMS = pd.read_hdf(self.input()["xsh_1000_500_ll_CMS"]["events"].path, key="events")
+        xsh_1000_500_ll_ATLAS = pd.read_hdf(self.input()["xsh_1000_500_ll_ATLAS"]["events"].path, key="events")
+        xsh_750_100_ll_CMS = pd.read_hdf(self.input()["xsh_750_100_ll_CMS"]["events"].path, key="events")
+        xsh_750_100_ll_ATLAS = pd.read_hdf(self.input()["xsh_750_100_ll_ATLAS"]["events"].path, key="events")
+        for key in nonres_yy_jjj.columns:
+            plt.figure(figsize=(8, 5))
+            _ , bins, __ = plt.hist(
+                nonres_yy_jjj[key],
+                bins=20,
+                label="nonres_yy_jjj",
+                density=True,
+                histtype="step",
+            )
+            plt.hist(
+                xsh_750_100_ll_CMS[key],
+                bins=bins,
+                label="xsh_750_100_ll_CMS",
+                density=True,
+                histtype="step",
+            )
+            # plt.hist(
+            #     xsh_750_100_ll_ATLAS[key],
+            #     bins=bins,
+            #     label="xsh_750_100_ll_ATLAS",
+            #     density=True,
+            #     histtype="step",
+            # )
+            # plt.hist(
+            #     xsh_500_100[key],
+            #     bins=bins,
+            #     label="xsh_500_100",
+            #     density=True,
+            #     histtype="step",
+            # )
+            plt.hist(
+                xsh_1000_500_CMS[key],
+                bins=bins,
+                label="xsh_1000_500_bb_CMS",
+                density=True,
+                histtype="step",
+            )
+            # plt.hist(
+            #     xsh_1000_500_ATLAS[key],
+            #     bins=bins,
+            #     label="xsh_1000_500_bb_ATLAS",
+            #     density=True,
+            #     histtype="step",
+            # )
+            plt.hist(
+                xsh_1000_500_ll_CMS[key],
+                bins=bins,
+                label="xsh_1000_500_ll_CMS",
+                density=True,
+                histtype="step",
+            )
+            # plt.hist(
+            #     xsh_1000_500_ll_ATLAS[key],
+            #     bins=bins,
+            #     label="xsh_1000_500_ll_ATLAS",
+            #     density=True,
+            #     histtype="step",
+            # )
+            # plt.hist(
+            #     ll[key],
+            #     bins=bins,
+            #     label="ll",
+            #     density=True,
+            #     histtype="step",
+            # )
+            # plt.hist(
+            #     all[key],
+            #     bins=bins,
+            #     range=(all[key].min(), all[key].max()),
+            #     label="all",
+            #     density=True,
+            #     histtype="step",
+            # )
+            plt.yscale("log")
+            plt.xlabel(key)
+            plt.ylabel("Normalized Entries")
+            plt.legend()
+            plt.title("XSH_1000_500 comparison")
+            plt.tight_layout()
+            self.output().touch()
+            plt.savefig(self.output().path + f"/{key}.pdf")
+            plt.close()
+
+
 class PlotEvents(SkimEvents):
     def requires(self):
         return SkimEvents.req(self)
