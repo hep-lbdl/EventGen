@@ -432,6 +432,8 @@ class PlotEvents(SkimEvents):
         with PdfPages(self.output().path) as pdf:
             for column in df.columns:
                 fig, ax = plt.subplots()
+                if not df[column].notna().any():
+                    continue
                 plt.hist(df[column], bins=50, alpha=0.7)
                 plt.title(
                     f"Process {self.process} @ {self.detector} using {self.processor} proc."
