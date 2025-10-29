@@ -61,6 +61,20 @@ class ProcessMixin:
         return f"{os.getenv('GEN_CODE')}/config/processes/{self.process}"
 
     @property
+    def common_model_dir(self):
+        """
+        load common UFO models
+        """
+        return f"{os.getenv('GEN_CODE')}/config/models"
+
+    @property
+    def common_param_dir(self):
+        """
+        load common param_card
+        """
+        return f"{os.getenv('GEN_CODE')}/config/params"
+
+    @property
     def madgraph_config_file(self):
         return f"{self.process_config_dir}/madgraph.dat"
 
@@ -86,16 +100,16 @@ class DetectorMixin:
 
     @property
     def detector_config(self):
-        user_config = f"{os.getenv('GEN_CODE')}/config/cards/{self.detector_config_file}"
-        default_config = f"{os.getenv('DELPHES_DIR')}/cards/{self.detector_config_file}"
+        filename = self.detector_config_file
+        user_config = f"{os.getenv('GEN_CODE')}/config/cards/{filename}"
+        default_config = f"{os.getenv('DELPHES_DIR')}/cards/{filename}"
         if os.path.exists(user_config):
             return user_config
         elif os.path.exists(default_config):
             return default_config
         else:
-            raise FileNotFoundError(
-                f"Detector configuration file not found: {self.detector_config_file}"
-            )
+            raise FileNotFoundError(f"Detector configuration  not found: {filename}")
+
 
 class ProcessorMixin:
     processor = law.Parameter(default="test")
@@ -201,6 +215,12 @@ class Madgraph(
             )
             madgraph_config = madgraph_config.replace(
                 "OUTPUT_PLACEHOLDER", madgraph_target.path
+            )
+            madgraph_config = madgraph_config.replace(
+                "MODEL_PLACEHOLDER", self.common_model_dir
+            )
+            madgraph_config = madgraph_config.replace(
+                "PARAM_PLACEHOLDER", self.common_param_dir
             )
             config_target.dump(madgraph_config, formatter="text")
             cmd = [self.executable, "-f", config_target.path]
@@ -329,6 +349,7 @@ class DelphesPythia8(
 class SkimEvents(
     ProcessorMixin,
     DetectorMixin,
+    ChunkedEventsTask,
     NEventsMixin,
     ProcessMixin,
     ClusterMixin,
@@ -341,6 +362,8 @@ class SkimEvents(
     walltime = "01:00:00"
     qos = "shared"
     arch = "cpu"
+
+    step_size = luigi.IntParameter(default=0)
 
     def requires(self):
         return DelphesPythia8.req(self)
@@ -360,7 +383,10 @@ class SkimEvents(
         }
 
         # Start Preprocessing
-        dataset_runnable, _ = preprocess(fset)
+        if self.step_size > 0:
+            dataset_runnable, _ = preprocess(fset, step_size=self.step_size)
+        else:
+            dataset_runnable, _ = preprocess(fset)
 
         # Apply to Fileset
         to_compute = apply_to_fileset(
@@ -406,11 +432,15 @@ class PlotEvents(SkimEvents):
         with PdfPages(self.output().path) as pdf:
             for column in df.columns:
                 fig, ax = plt.subplots()
+                if not df[column].notna().any():
+                    continue
                 plt.hist(df[column], bins=50, alpha=0.7)
-                plt.title(f"Process {self.process} @ {self.detector} using {self.processor} proc.")
-                
+                plt.title(
+                    f"Process {self.process} @ {self.detector} using {self.processor} proc."
+                )
+
                 plt.xlabel(column)
-                plt.ylabel('Entries')
+                plt.ylabel("Entries")
                 plt.tight_layout()
                 pdf.savefig()
 
