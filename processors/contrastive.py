@@ -1,7 +1,36 @@
 import numpy as np
 import awkward as ak
+import dask_awkward as dak
 import coffea.processor as processor
 from coffea.nanoevents.methods import candidate
+
+
+def select_pair(particles, condition=lambda c: abs((c["0"] + c["1"]).mass - 125)):
+    """
+    Select pair of particles for which the condition is minimal.
+    Returns a collection of all particles with the pair as the first two.
+    The ordering of the remaining particles is left intact.
+    Currently only implemented for three particles.
+    """
+    c = ak.combinations(particles, 2)
+    ordering = ak.argmin(condition(c), axis=-1)
+    ordering = ak.fill_none(ordering, 0)
+    indices = dak.from_awkward(
+        ak.Array(
+            [
+                [0, 1, 2],
+                [0, 2, 1],
+                [1, 2, 0],
+            ]
+        ),
+        npartitions=ordering.npartitions,
+    )
+    reorder = indices[ordering]
+    return particles[reorder]
+
+
+def pad(x, target):
+    return ak.pad_none(x, target=target, clip=True)
 
 
 class Processor(processor.ProcessorABC):
@@ -9,9 +38,8 @@ class Processor(processor.ProcessorABC):
         pass
 
     def process(self, events):
-        pad = lambda x, target: ak.pad_none(x, target=target, clip=True)
-        photons = pad(events.Photon, 2)
-        hgamma = ak.zip(
+        photons = pad(events.Photon, 3)
+        gamma = ak.zip(
             {
                 "pt": photons.pt,
                 "eta": photons.eta,
@@ -22,10 +50,11 @@ class Processor(processor.ProcessorABC):
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
+        gamma = select_pair(gamma)
 
-        diphoton_mass = (hgamma[:, 0] + hgamma[:, 1]).mass
-        diphoton_pt = (hgamma[:, 0] + hgamma[:, 1]).pt
-        diphoton_delta_r = hgamma[:, 0].delta_r(hgamma[:, 1])
+        diphoton_mass = (gamma[:, 0] + gamma[:, 1]).mass
+        diphoton_pt = (gamma[:, 0] + gamma[:, 1]).pt
+        diphoton_delta_r = gamma[:, 0].delta_r(gamma[:, 1])
         gamma_pt_rel = photons.pt / diphoton_mass[:, None]
         photon1_pt_rel, photon2_pt_rel = gamma_pt_rel[:, 0], gamma_pt_rel[:, 1]
 
@@ -97,31 +126,14 @@ class Processor(processor.ProcessorABC):
         met_pt = events.MissingET.MET
         met_phi = events.MissingET.phi
 
-        # misc event features
+        # Misc event features
         n_photons = ak.num(events.Photon)
         n_jets = ak.num(events.Jet)
         n_fatjets = ak.num(events.FatJet)
         event_weight = events.Event.Weight
         event_number = events.Event.Number
 
-        # event selection
-        """
-        # Main Selection:
-        ## Event
-        HasPrimaryVertex: HGamEventInfoAuxDyn.numberOfPrimaryVertices > 0 -> dont
-        TwoLossePhotons + e y ambiguity cut: HGamEventInfoAuxDyn.NLoosePhotons >= 2 -> implemented
-        ## Trigger:
-        Full implementation (EventInfoAuxDyn.passTrig_HLT_g35_medium_g25_medium_L12EM20VH || EventInfoAuxDyn.passTrig_HLT_g140_loose || EventInfoAuxDyn.passTrig_HLT_g35_loose_g25_loose || EventInfoAuxDyn.passTrig_HLT_g120_loose)
-        Di lepton triggers: lead photon pT > 35 && sublead photon pT > 25 -> implemented
-        Trigger Matching: HGamEventInfoAuxDyn.isPassedTriggerMatch -> dont
-        ## Photons
-        Tight Photon ID: HGamEventInfoAuxDyn.isPassedPID -> dont
-        Photon Iso: HGamEventInfoAuxDyn.isPassedIsolation -> later?
-        https://gitlab.cern.ch/atlas/athena/-/blob/main/PhysicsAnalysis/AnalysisCommon/IsolationSelection/Root/IsolationSelectionTool.cxx#L220-251
-        https://gitlab.cern.ch/atlas/athena/-/blob/main/PhysicsAnalysis/AnalysisCommon/IsolationSelection/Root/IsolationConditionFormula.cxx#L44
-        Relative Pt cut (The two leading, pre-selected photons pass the 0.4 / 0.3 relative pT cuts, relative to myy): HGamEventInfoAuxDyn.isPassedRelPtCuts -> implemented
-        myy mass window cut: (HGamEventInfoAuxDyn.m_yy > 105000) && (HGamEventInfoAuxDyn.m_yy < 160000) -> implemented
-        """
+        # Event selection
         good = n_photons >= 2
         # Trigger
         trigger = ((photons[:, 0].pt > 35) & (photons[:, 1].pt > 25)) | (photons[:, 0].pt > 140)  # fmt: skip
@@ -134,11 +146,14 @@ class Processor(processor.ProcessorABC):
         good = good & myy_cut
         # Prevent None in mask
         good = ak.fill_none(good, False)
+        # Scale mass and energy features
         scale = lambda x: x * 1_000
 
+        # Gather outputs
+        # Particles
         output = dict()
         for particle, collection, n in [
-            ("photon", hgamma, 2),
+            ("photon", gamma, 3),
             ("muon", muons, 2),
             ("electron", electrons, 2),
             ("jet", jets, 4),
@@ -150,12 +165,15 @@ class Processor(processor.ProcessorABC):
                 output[f"{particle}{i+1}_phi"] = collection.phi[:, i][good]
                 output[f"{particle}{i+1}_m"] = scale(collection.mass[:, i])[good]
                 if particle in ["jet", "fatjet"]:
-                    output[f"{particle}{i+1}_btag"] = ak.fill_none(collection.BTagPhys[:, i][good], np.nan)
+                    output[f"{particle}{i+1}_btag"] = ak.fill_none(
+                        collection.BTagPhys[:, i][good], np.nan
+                    )
                 if particle == "fatjet":
                     for i in range(n):
                         output[f"fatjet{i+1}_tau21"] = fatjets_tau21[:, i][good]
                         output[f"fatjet{i+1}_tau32"] = fatjets_tau32[:, i][good]
                         output[f"fatjet{i+1}_tau43"] = fatjets_tau43[:, i][good]
+        # HL Features
         output.update(
             {
                 # photons
