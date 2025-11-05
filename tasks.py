@@ -169,14 +169,21 @@ class Madgraph(
     BaseTask,
 ):
     # SLURM Configuration
-    # Adjusted to 1Mio events of nonres_yy_jjj process
+    # 1Mio events of nonres_yy_jjj process walltime = "24:00:00"
     cores = 1
     memory = "64GB"
-    walltime = "24:00:00"
+    # walltime is dynamic, see below
     qos = "shared"
 
     def requires(self):
         return MadgraphConfig.req(self)
+
+    @property
+    def walltime(self):
+        if self.process in ["nonres_yy_jjj"]:
+            return "24:00:00"
+        else:
+            return "01:00:00"
 
     @property
     def executable(self):
