@@ -5,6 +5,7 @@ import shutil
 
 import luigi
 import law
+import numpy as np
 import pandas as pd
 from coffea.nanoevents import DelphesSchema
 from coffea.dataset_tools import (
@@ -168,6 +169,9 @@ class Madgraph(
     ClusterMixin,
     BaseTask,
 ):
+    # Base random seed
+    seed = 42
+
     # SLURM Configuration
     # 1Mio events of nonres_yy_jjj process walltime = "24:00:00"
     cores = 1
@@ -205,6 +209,10 @@ class Madgraph(
         madgraph_config_base = self.input().load(formatter="text")
         # Set up the tasks to compute
         cmds = []
+
+        # Create a random number generator with a seed
+        rng = np.random.default_rng(self.seed)
+
         for identifier, (start, stop) in zip(self.identifiers, self.brakets):
             config_target = self.output()[identifier]["config"]
             madgraph_target = self.output()[identifier]["madgraph_dir"]
@@ -215,6 +223,9 @@ class Madgraph(
 
             n_events = stop - start
             madgraph_config = str(madgraph_config_base)
+            madgraph_config = madgraph_config.replace(
+                "SEED_PLACEHOLDER", str(rng.integers(0, 99999))
+            )
             madgraph_config = madgraph_config.replace(
                 "NEVENTS_PLACEHOLDER", str(int(n_events))
             )
