@@ -42,7 +42,7 @@ class Processor(processor.ProcessorABC):
 
     def process(self, events):
         photons = pad(events.Photon, 3)
-        gamma = ak.zip(
+        photons = ak.zip(
             {
                 "pt": photons.pt,
                 "eta": photons.eta,
@@ -53,13 +53,17 @@ class Processor(processor.ProcessorABC):
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
-        gamma = select_pair(gamma)
 
-        diphoton_mass = (gamma[:, 0] + gamma[:, 1]).mass
-        diphoton_pt = (gamma[:, 0] + gamma[:, 1]).pt
-        diphoton_delta_r = gamma[:, 0].delta_r(gamma[:, 1])
-        gamma_pt_rel = photons.pt / diphoton_mass[:, None]
-        photon1_pt_rel, photon2_pt_rel = gamma_pt_rel[:, 0], gamma_pt_rel[:, 1]
+        # Define photon 1 and 2 according to Higgs mass
+        photons = select_pair(photons)
+
+        # Define photon pair features
+        diphoton_mass = (photons[:, 0] + photons[:, 1]).mass
+        diphoton_pt = (photons[:, 0] + photons[:, 1]).pt
+        diphoton_delta_r = photons[:, 0].delta_r(photons[:, 1])
+
+        photons_pt_rel = photons.pt / diphoton_mass[:, None]
+        photon1_pt_rel, photon2_pt_rel, photon3_pt_rel = (photons_pt_rel[:, i] for i in range(3))
 
         jets = pad(events.Jet, 4)
         jets = ak.zip(
@@ -138,17 +142,22 @@ class Processor(processor.ProcessorABC):
 
         # Event selection
         good = n_photons >= 2
+
         # Trigger
         trigger = ((photons[:, 0].pt > 35) & (photons[:, 1].pt > 25)) | (photons[:, 0].pt > 140)  # fmt: skip
         good = good & trigger
+
         # Rel pT cut
         rel_pt_cut = (photon1_pt_rel > 0.4) & (photon2_pt_rel > 0.3)
         good = good & rel_pt_cut
+
         # Myy mass window
         myy_cut = (diphoton_mass > 105) & (diphoton_mass < 160)
         good = good & myy_cut
+
         # Prevent None in mask
         good = ak.fill_none(good, False)
+
         # Scale mass and energy features
         scale = lambda x: x * 1_000
 
@@ -156,7 +165,7 @@ class Processor(processor.ProcessorABC):
         # Particles
         output = dict()
         for particle, collection, n in [
-            ("photon", gamma, 3),
+            ("photon", photons, 3),
             ("muon", muons, 2),
             ("electron", electrons, 2),
             ("jet", jets, 4),
@@ -186,6 +195,7 @@ class Processor(processor.ProcessorABC):
                 # photon pt rel
                 "photon1_pt_rel": photon1_pt_rel[good],
                 "photon2_pt_rel": photon2_pt_rel[good],
+                "photon3_pt_rel": photon3_pt_rel[good],
                 # jets
                 "dijet_mass": scale(dijet_mass)[good],
                 "dijet_delta_R": dijet_delta_r[good],
