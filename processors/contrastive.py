@@ -15,15 +15,18 @@ def select_pair(particles, condition=lambda c: abs((c["0"] + c["1"]).mass - 125)
     c = ak.combinations(particles, 2)
     ordering = ak.argmin(condition(c), axis=-1)
     ordering = ak.fill_none(ordering, 0)
+    npartitions = ordering.npartitions
     indices = dak.from_awkward(
-        ak.Array(
+        ak.concatenate([
+            ak.Array(
             [
                 [0, 1, 2],
                 [0, 2, 1],
                 [1, 2, 0],
-            ]
-        ),
-        npartitions=ordering.npartitions,
+            ])
+            for i in range(npartitions)
+        ]),
+        npartitions=npartitions,
     )
     reorder = indices[ordering]
     return particles[reorder]
