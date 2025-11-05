@@ -147,7 +147,8 @@ class ChunkedEventsTask(NEventsMixin):
     @property
     def brakets(self):
         n_events = int(self.n_events)
-        starts = range(0, n_events, self.n_max)
+        n_max = int(self.n_max)
+        starts = range(0, n_events, n_max)
         stops = list(starts)[1:] + [n_events]
         brakets = zip(starts, stops)
         return list(brakets)
