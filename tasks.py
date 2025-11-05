@@ -444,15 +444,18 @@ class PlotEvents(SkimEvents):
 
     def run(self):
         df = pd.read_hdf(self.input()["events"].path, key="events")
-
         # Save plots
         self.output().parent.touch()
         with PdfPages(self.output().path) as pdf:
             for column in df.columns:
                 fig, ax = plt.subplots()
-                if not df[column].notna().any():
+                values = df[column]
+                if not values.notna().any():
                     continue
-                plt.hist(df[column], bins=50, alpha=0.7)
+                if values.dtype == bool:
+                    values = values.astype(int)
+                bins = min(len(values.unique() * 2), 50)
+                plt.hist(values, bins=bins, alpha=0.7)
                 plt.title(
                     f"Process {self.process} @ {self.detector} using {self.processor} proc."
                 )
