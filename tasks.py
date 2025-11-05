@@ -249,12 +249,11 @@ class Madgraph(
         cluster = self.start_cluster(len(cmds))
         client = Client(cluster)
 
-        # Submit tasks
-        tasks = [delayed(subprocess.call)(cmd) for cmd in cmds]
-        results = client.compute(tasks)
+        # Use client.map to parallelize the tasks
+        futures = client.map(subprocess.call, cmds)
 
         # Gather the results
-        results = client.gather(results)
+        client.gather(futures)
 
         # Scale down and close the cluster
         cluster.scale(0)
@@ -302,7 +301,8 @@ class DelphesPythia8(
             raise Exception("Did you activate the 'eventgen' conda env?")
 
     @staticmethod
-    def call_with_output(cmd, out_path):
+    def call_with_output(info):
+        cmd, out_path = info
         with open(out_path, "w") as out_file:
             result = subprocess.call(cmd, stdout=out_file, stderr=out_file)
         return result
@@ -352,12 +352,11 @@ class DelphesPythia8(
         cluster = self.start_cluster(len(cmds))
         client = Client(cluster)
 
-        # Submit tasks
-        tasks = [delayed(self.call_with_output)(cmd, out) for (cmd, out) in cmds]
-        results = client.compute(tasks)
+        # Use client.map to parallelize the tasks
+        futures = client.map(self.call_with_output, cmds)
 
         # Gather the results
-        results = client.gather(results)
+        results = client.gather(futures)
 
         # Scale down and close the cluster
         cluster.scale(0)
