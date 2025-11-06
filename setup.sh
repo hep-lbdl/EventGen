@@ -76,6 +76,10 @@ action() {
     if ! conda env list | grep -q '^eventgen'; then
         yes | conda create --name eventgen
         yes | conda env update -n eventgen --file eventgen.yml
+        # Install temporary Delphes fix (H->yy filter) from:
+        # https://github.com/qibin2020/delphes/commit/2104fd9
+        CONDA_PREFIX="/$(conda env list | grep -Po 'eventgen\K.*' | cut -d '/' -f2-)"
+        cp /pscratch/sd/d/dnoll/projects/haxad/EventGenDelphes/bin/* ${CONDA_PREFIX}/bin
     fi
 
     # Activate conda environment eventgen
