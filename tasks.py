@@ -19,7 +19,7 @@ from dask.distributed import Client
 from dask import delayed
 
 from utils.numpy import NumpyEncoder
-from utils.infrastructure import ClusterMixin
+from utils.infrastructure import ClusterMixin, silentremove
 
 
 class BaseTask(law.Task):
@@ -301,10 +301,23 @@ class DelphesPythia8(
             raise Exception("Did you activate the 'eventgen' conda env?")
 
     @staticmethod
-    def call_with_output(info):
-        cmd, out_path = info
-        with open(out_path, "w") as out_file:
+    def fun(info):
+        exe, detector, process, events, out, = info
+
+        # Write events to tmp file
+        tmp_events = events + ".tmp"
+
+        # If tmp file exists from a previous run, just remove it
+        silentremove(tmp_events)
+
+        # Process
+        cmd = [exe, detector, process, tmp_events]
+        with open(out, "w") as out_file:
             result = subprocess.call(cmd, stdout=out_file, stderr=out_file)
+
+        # Move events from tmp file to final dir
+        shutil.move(tmp_events, events)
+
         return result
 
     @law.decorator.safe_output
@@ -340,20 +353,20 @@ class DelphesPythia8(
 
             config_target.dump(pythia_config, formatter="text")
 
-            cmd = [
+            cmds.append([
                 self.executable,
                 detector_config,
                 config_target.path,
                 events_target.path,
-            ]
-            cmds.append((cmd, out_target.path))
+                out_target.path,
+            ])
 
         # Connect to the cluster
         cluster = self.start_cluster(len(cmds))
         client = Client(cluster)
 
         # Use client.map to parallelize the tasks
-        futures = client.map(self.call_with_output, cmds)
+        futures = client.map(self.fun, cmds)
 
         # Gather the results
         results = client.gather(futures)

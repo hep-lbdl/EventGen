@@ -1,6 +1,7 @@
 import os
 import logging
 import warnings
+import errno
 
 import law
 from dask.distributed import LocalCluster
@@ -86,3 +87,11 @@ class ClusterMixin:
             raise ValueError(f"Unknown cluster mode {self.cluster}")
         logger.info(f"Dask dashboard at {cluster.dashboard_link}")
         return cluster
+
+
+def silentremove(filename):
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
+            raise # re-raise exception if a different error occurred
