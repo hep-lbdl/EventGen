@@ -84,5 +84,5 @@ class ClusterMixin:
             cluster.scale(n_nodes)
         else:
             raise ValueError(f"Unknown cluster mode {self.cluster}")
-        logger.info("Dask dashboard at ", cluster.dashboard_link)
+        logger.info(f"Dask dashboard at {cluster.dashboard_link}")
         return cluster
