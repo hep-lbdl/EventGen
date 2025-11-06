@@ -387,8 +387,7 @@ class SkimEvents(
     BaseTask,
 ):
     # SLURM Configuration
-    # Using only one core as task will be IO limited
-    cores = 1
+    cores = 8
     memory = "5GB"
     walltime = "01:00:00"
     qos = "shared"
@@ -427,9 +426,14 @@ class SkimEvents(
         )
 
         # Compute Payload
-        cluster = self.start_cluster(len(inputs))
+        cluster = self.start_cluster(1)
         with Client(cluster) as client:
             (output,) = dask.compute(to_compute)
+
+        # Scale down and close the cluster
+        cluster.scale(0)
+        client.close()
+        cluster.close()
 
         output = output["all"]
 

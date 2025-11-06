@@ -69,7 +69,11 @@ class ClusterMixin:
         # dask will use however much it needs, until
         # all jobs are successfully finished
         if self.cluster_mode == "local":
-            cluster = LocalCluster()
+            cluster = LocalCluster(
+                n_workers=n_nodes,
+                threads_per_worker=self.cores,
+                memory_limit=self.memory,
+            )
         elif self.cluster_mode == "fullnode":
             # Run on allocated interactive node and we use all resources
             # use extra thread for IO or potential MT speedup, leave some mem for system and temp swap
