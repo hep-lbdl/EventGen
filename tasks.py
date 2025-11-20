@@ -20,6 +20,7 @@ from dask import delayed
 
 from utils.numpy import NumpyEncoder
 from utils.infrastructure import ClusterMixin, silentremove
+from utils.physics import to_femto, parse_mg_output, parse_pythia_output
 
 
 class BaseTask(law.Task):
@@ -173,10 +174,8 @@ class Madgraph(
     seed = 42
 
     # SLURM Configuration
-    # 1Mio events of nonres_yy_jjj process walltime = "24:00:00"
+    # Walltime is dynamic, see below
     cores = 1
-    memory = "64GB"
-    # walltime is dynamic, see below
     qos = "shared"
 
     def requires(self):
@@ -184,10 +183,19 @@ class Madgraph(
 
     @property
     def walltime(self):
+        # Catch NLO processes which might take longer
         if self.process in ["nonres_yy_jjj"]:
             return "24:00:00"
         else:
             return "01:00:00"
+
+    @property
+    def memory(self):
+        # Catch NLO processes which might need more memory
+        if self.process in ["nonres_yy_jjj"]:
+            return "64GB"
+        else:
+            return "4GB"
 
     @property
     def executable(self):
@@ -197,13 +205,23 @@ class Madgraph(
         return {
             identifier: {
                 "config": self.local_target(f"{identifier}/config.dat"),
-                "madgraph_dir": self.local_directory_target(f"{identifier}/out"),
-                "events": self.local_target(
-                    f"{identifier}/out/Events/run_01/unweighted_events.lhe.gz"
-                ),
+                "madgraph_dir": self.local_directory_target(f"{identifier}/mg"),
+                "events": self.local_target(f"{identifier}/mg/Events/run_01/unweighted_events.lhe.gz"),  # fmt: skip
+                "out": self.local_target(f"{identifier}/out.txt"),
             }
             for identifier in self.identifiers
         }
+
+    @staticmethod
+    def fun(info):
+        exe, config, out = info
+
+        # Process
+        cmd = [exe, "-f", config]
+        with open(out, "w") as out_file:
+            result = subprocess.call(cmd, stdout=out_file, stderr=out_file)
+
+        return result
 
     def run(self):
         madgraph_config_base = self.input().load(formatter="text")
@@ -218,6 +236,8 @@ class Madgraph(
             config_target = self.output()[identifier]["config"]
             madgraph_target = self.output()[identifier]["madgraph_dir"]
             events_target = self.output()[identifier]["events"]
+            out_target = self.output()[identifier]["out"]
+
             # In case the task already successfully finished an identifier
             if events_target.exists():
                 continue
@@ -243,15 +263,22 @@ class Madgraph(
                 "PARAM_PLACEHOLDER", self.common_param_dir
             )
             config_target.dump(madgraph_config, formatter="text")
-            cmd = [self.executable, "-f", config_target.path]
-            cmds.append(cmd)
+            out_target.parent.touch()
+
+            cmds.append(
+                [
+                    self.executable,
+                    config_target.path,
+                    out_target.path,
+                ]
+            )
 
         # Connect to the cluster
         cluster = self.start_cluster(len(cmds))
         client = Client(cluster)
 
         # Use client.map to parallelize the tasks
-        futures = client.map(subprocess.call, cmds)
+        futures = client.map(self.fun, cmds)
 
         # Gather the results
         client.gather(futures)
@@ -303,7 +330,7 @@ class DelphesPythia8(
 
     @staticmethod
     def fun(info):
-        exe, detector, process, events, out, = info
+        exe, detector, process, events, out = info
 
         # Write events to tmp file
         tmp_events = events + ".tmp"
@@ -354,13 +381,15 @@ class DelphesPythia8(
 
             config_target.dump(pythia_config, formatter="text")
 
-            cmds.append([
-                self.executable,
-                detector_config,
-                config_target.path,
-                events_target.path,
-                out_target.path,
-            ])
+            cmds.append(
+                [
+                    self.executable,
+                    detector_config,
+                    config_target.path,
+                    events_target.path,
+                    out_target.path,
+                ]
+            )
 
         # Connect to the cluster
         cluster = self.start_cluster(len(cmds))
@@ -405,6 +434,10 @@ class SkimEvents(
             "events": self.local_target("skimmed.h5"),
         }
 
+    @staticmethod
+    def get_single_job(req_dict):
+        return list(req_dict.values())[0]
+
     @law.decorator.safe_output
     def run(self):
         inputs = self.input()
@@ -442,7 +475,7 @@ class SkimEvents(
         cutflow = output["cutflow"]
         self.output()["cutflow"].dump(cutflow, cls=NumpyEncoder)
 
-        # Write events to h5
+        # Create dataframe from events
         events = output["events"]
         df = pd.DataFrame(events.to_numpy().data)
 
@@ -450,6 +483,23 @@ class SkimEvents(
         eff = cutflow["good"] / cutflow["total"]
         df["selection_efficiency"] = eff
 
+        # Write cross-section info for MadGraph
+        if self.has_madgraph_config:
+            one_mg_job = self.get_single_job(self.requires().input()["madgraph"])
+            mg_output = one_mg_job["out"].load()
+            mg_xsec, mg_xsec_unc = parse_mg_output(mg_output)
+        else:
+            mg_xsec, mg_xsec_unc = np.nan, np.nan
+        df["mg_xsec [fb]"], df["mg_xsec_unc [fb]"] = mg_xsec, mg_xsec_unc
+
+        # Write cross-section and decay filter info for Pythia
+        one_pythia_job = self.get_single_job(self.input())
+        pythia_out = one_pythia_job["out"].load()
+        pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(pythia_out)
+        df["pythia_xsec [fb]"], df["pythia_xsec_unc [fb]"] = pythia_xsec, pythia_xsec_unc
+        df["pythia_filter_efficiency"] = pythia_filter_efficiency
+
+        # Write events to hdf5
         df.to_hdf(self.output()["events"].path, key="events")
 
 
@@ -579,6 +629,3 @@ class PlotEventsContrastiveWrapper(BaseTask, law.WrapperTask):
             ]
         ]
         return req
-
-
-                
