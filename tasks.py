@@ -210,10 +210,11 @@ class Madgraph(
         # Set up the tasks to compute
         cmds = []
 
-        # Create a random number generator with a seed
-        rng = np.random.default_rng(self.seed)
-
-        for identifier, (start, stop) in zip(self.identifiers, self.brakets):
+        for i, identifier, (start, stop) in zip(
+            range(len(self.identifiers)),
+            self.identifiers,
+            self.brakets,
+        ):
             config_target = self.output()[identifier]["config"]
             madgraph_target = self.output()[identifier]["madgraph_dir"]
             events_target = self.output()[identifier]["events"]
@@ -224,7 +225,7 @@ class Madgraph(
             n_events = stop - start
             madgraph_config = str(madgraph_config_base)
             madgraph_config = madgraph_config.replace(
-                "SEED_PLACEHOLDER", str(rng.integers(0, 99999))
+                "SEED_PLACEHOLDER", str(self.seed + i)
             )
             madgraph_config = madgraph_config.replace(
                 "NEVENTS_PLACEHOLDER", str(int(n_events))
