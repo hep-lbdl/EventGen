@@ -20,7 +20,7 @@ from dask import delayed
 
 from utils.numpy import NumpyEncoder
 from utils.infrastructure import ClusterMixin, silentremove
-from utils.physics import to_femto, parse_mg_output, parse_pythia_output
+from utils.physics import parse_mg_output, parse_pythia_output
 
 
 class BaseTask(law.Task):
