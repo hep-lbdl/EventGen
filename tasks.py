@@ -177,6 +177,7 @@ class Madgraph(
     # Walltime is dynamic, see below
     cores = 1
     qos = "shared"
+    memory = "4GB"
 
     def requires(self):
         return MadgraphConfig.req(self)
@@ -188,14 +189,6 @@ class Madgraph(
             return "24:00:00"
         else:
             return "01:00:00"
-
-    @property
-    def memory(self):
-        # Catch NLO processes which might need more memory
-        if self.process in ["nonres_yy_jjj"]:
-            return "64GB"
-        else:
-            return "4GB"
 
     @property
     def executable(self):
