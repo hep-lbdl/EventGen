@@ -544,23 +544,43 @@ class PlotEvents(SkimEvents):
 class PlotEventsWrapper(BaseTask, law.WrapperTask):
     def requires(self):
         config = dict(
-            detector="ATLAS_fatjet",
+            detector="ATLAS_fatjet_skimAll",
             processor="yy",
             ecm=13000.0,
         )
-        return [
-            PlotEvents.req(self, process="nonres_yy_jjj", n_events=3e7, **config),
-            PlotEvents.req(self, process="ggh_yy", n_events=2e6, **config),
-            PlotEvents.req(self, process="ttH_yy", n_events=2e6, **config),
-            PlotEvents.req(self, process="vbf_yy", n_events=2e6, **config),
-            PlotEvents.req(self, process="vh_yy", n_events=2e6, **config),
-            PlotEvents.req(self, process="WN_HyyN_150", n_events=1e6, **config),
-            PlotEvents.req(self, process="WN_HyyN_200", n_events=1e6, **config),
-            PlotEvents.req(self, process="WN_HyyN_300", n_events=1e6, **config),
-            PlotEvents.req(self, process="WN_HyyN_600", n_events=1e6, **config),
-            PlotEvents.req(self, process="XSH_500_100", n_events=1e6, **config),
-            PlotEvents.req(self, process="XSH_750_100_ll", n_events=1e6, **config),
-        ]
+        ret = [PlotEvents.req(self, process="nonres_yy_jjj", n_events=6e7, **config)]
+        # ret += [
+        #     PlotEvents.req(self, process=process, n_events=2e6, **config)
+        #     for process in [
+        #         "ggh_yy",
+        #         "ttH_yy",
+        #         "vbf_yy",
+        #         "vh_yy",
+        #         "WN_HyyN_150",
+        #         "WN_HyyN_200",
+        #         "WN_HyyN_300",
+        #         "WN_HyyN_600",
+        #         "XSH_500_100",
+        #         "XSH_750_100_ll",
+        #         "TT_tZNtHyyN",
+        #         "ZpHyyA_200",
+        #         "ZpHyyA_500",
+        #         "thFCNC_ctHyy_tcphi",
+        #         "thFCNC_utHyy_tphi",
+        #         "ttFCNC_tcHyy_tcphi",
+        #         "ttFCNC_tuHyy_tphi",
+        #         "Hl_Hyyl_150",
+        #         "Hl_Hyyl_300",
+        #         "Hl_Hyyl_450",
+        #         "WlZvHv_Hyyl_200",
+        #         "WlZvHv_Hyyl_400",
+        #         "WlZvHv_Hyyl_600",
+        #         "BB_bHNbHyyN_500_180_50",
+        #         "BB_bHNbHyyN_1000_205_60",
+        #         "BB_bHNbHyyN_1200_205_60",
+        #     ]
+        # ]
+        return ret
 
 
 class PlotEventsContrastiveWrapper(BaseTask, law.WrapperTask):
