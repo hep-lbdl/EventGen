@@ -465,22 +465,29 @@ class PlotEvents(SkimEvents):
         self.output().parent.touch()
         with PdfPages(self.output().path) as pdf:
             for column in df.columns:
-                fig, ax = plt.subplots()
                 values = df[column]
+
+                # Clean values
+                values.replace([np.inf, -np.inf], np.nan, inplace=True)
                 if not values.notna().any():
                     continue
                 if values.dtype == bool:
                     values = values.astype(int)
-                bins = min(len(values.unique() * 2), 50)
-                plt.hist(values, bins=bins, alpha=0.7)
-                plt.title(
-                    f"Process {self.process} @ {self.detector} using {self.processor} proc."
-                )
 
+                # Determine number of bins
+                bins = min(len(values.unique() * 2), 50)
+
+                # Plot histogram
+                plt.hist(values, bins=bins, alpha=0.7)
+
+                # Decorate plot
+                title = f"Process {self.process} @ {self.detector} using {self.processor} proc."
+                plt.title(title)
                 plt.xlabel(column)
                 plt.ylabel("Entries")
                 plt.tight_layout()
                 pdf.savefig()
+                plt.close()
 
 
 class PlotEventsWrapper(BaseTask, law.WrapperTask):
