@@ -86,7 +86,7 @@ class ClusterMixin:
                 job_extra_directives=[f"--qos={self.qos}", f"-C {self.arch}"]
                 + self.log_dir,
             )
-            cluster.scale(n_nodes)
+            cluster.adapt(minimum=1, maximum=n_nodes)
         else:
             raise ValueError(f"Unknown cluster mode {self.cluster}")
         logger.info(f"Dask dashboard at {cluster.dashboard_link}")
