@@ -177,22 +177,21 @@ class Madgraph(
     # Walltime is dynamic, see below
     cores = 1
     qos = "shared"
-    memory = "4GB"
+    walltime = "09:59:00"
 
     def requires(self):
         return MadgraphConfig.req(self)
 
     @property
-    def walltime(self):
-        # Catch NLO processes which might take longer
-        if self.process in ["nonres_yy_jjj"]:
-            return "24:00:00"
-        else:
-            return "01:00:00"
-
-    @property
     def executable(self):
         return f"{os.getenv('MADGRAPH_DIR')}/bin/mg5_aMC"
+
+    @property
+    def memory(self):
+        if self.process in ["nonres_yy_jjj"]:
+            return "48GB"
+        else:
+            return "24GB"
 
     def output(self):
         return {
@@ -417,6 +416,13 @@ class SkimEvents(
     arch = "cpu"
 
     step_size = luigi.IntParameter(default=0)
+
+    @property
+    def memory(self):
+        if self.process in ["nonres_yy_jjj"]:
+            return "60GB"
+        else:
+            return "28GB"
 
     def requires(self):
         return DelphesPythia8.req(self)
