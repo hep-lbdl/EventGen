@@ -236,24 +236,12 @@ class Madgraph(
 
             n_events = stop - start
             madgraph_config = str(madgraph_config_base)
-            madgraph_config = madgraph_config.replace(
-                "SEED_PLACEHOLDER", str(self.seed + i)
-            )
-            madgraph_config = madgraph_config.replace(
-                "NEVENTS_PLACEHOLDER", str(int(n_events))
-            )
-            madgraph_config = madgraph_config.replace(
-                "EBEAM_PLACEHOLDER", str(self.ecm / 2)
-            )
-            madgraph_config = madgraph_config.replace(
-                "OUTPUT_PLACEHOLDER", madgraph_target.path
-            )
-            madgraph_config = madgraph_config.replace(
-                "MODEL_PLACEHOLDER", self.common_model_dir
-            )
-            madgraph_config = madgraph_config.replace(
-                "PARAM_PLACEHOLDER", self.common_param_dir
-            )
+            madgraph_config = madgraph_config.replace("SEED_PLACEHOLDER", str(self.seed + i))
+            madgraph_config = madgraph_config.replace("NEVENTS_PLACEHOLDER", str(int(n_events)))
+            madgraph_config = madgraph_config.replace("EBEAM_PLACEHOLDER", str(self.ecm / 2))
+            madgraph_config = madgraph_config.replace("OUTPUT_PLACEHOLDER", madgraph_target.path)
+            madgraph_config = madgraph_config.replace("MODEL_PLACEHOLDER", self.common_model_dir)
+            madgraph_config = madgraph_config.replace("PARAM_PLACEHOLDER", self.common_param_dir)
             config_target.dump(madgraph_config, formatter="text")
             out_target.parent.touch()
 
@@ -360,16 +348,12 @@ class DelphesPythia8(
             out_target.parent.touch()
 
             n_events = stop - start
-            pythia_config = pythia_config.replace(
-                "NEVENTS_PLACEHOLDER", str(int(n_events))
-            )
+            pythia_config = pythia_config.replace("NEVENTS_PLACEHOLDER", str(int(n_events)))
             pythia_config = pythia_config.replace("ECM_PLACEHOLDER", str(self.ecm))
 
             if self.has_madgraph_config:
                 madgraph_events = self.input()["madgraph"][identifier]["events"].path
-                pythia_config = pythia_config.replace(
-                    "INPUT_PLACEHOLDER", madgraph_events
-                )
+                pythia_config = pythia_config.replace("INPUT_PLACEHOLDER", madgraph_events)
 
             config_target.dump(pythia_config, formatter="text")
 
@@ -410,7 +394,6 @@ class SkimEvents(
 ):
     # SLURM Configuration
     cores = 8
-    memory = "5GB"
     walltime = "01:00:00"
     qos = "shared"
     arch = "cpu"
@@ -441,9 +424,7 @@ class SkimEvents(
     def run(self):
         inputs = self.input()
         # Get FSet
-        fset = {
-            "all": {"files": {inp["events"].path: "Delphes" for inp in inputs.values()}}
-        }
+        fset = {"all": {"files": {inp["events"].path: "Delphes" for inp in inputs.values()}}}
 
         # Start Preprocessing
         if self.step_size > 0:
