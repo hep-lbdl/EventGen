@@ -521,46 +521,69 @@ class PlotEvents(SkimEvents):
                 plt.close()
 
 
-class PlotEventsWrapper(BaseTask, law.WrapperTask):
+class PlotEventsWrapper(BaseTask):
     def requires(self):
         config = dict(
             detector="ATLAS_fatjet_skimAll",
             processor="yy",
             ecm=13000.0,
         )
-        ret = [PlotEvents.req(self, process="nonres_yy_jjj", n_events=6e7, **config)]
-        # ret += [
-        #     PlotEvents.req(self, process=process, n_events=2e6, **config)
-        #     for process in [
-        #         "ggh_yy",
-        #         "ttH_yy",
-        #         "vbf_yy",
-        #         "vh_yy",
-        #         "WN_HyyN_150",
-        #         "WN_HyyN_200",
-        #         "WN_HyyN_300",
-        #         "WN_HyyN_600",
-        #         "XSH_500_100",
-        #         "XSH_750_100_ll",
-        #         "TT_tZNtHyyN",
-        #         "ZpHyyA_200",
-        #         "ZpHyyA_500",
-        #         "thFCNC_ctHyy_tcphi",
-        #         "thFCNC_utHyy_tphi",
-        #         "ttFCNC_tcHyy_tcphi",
-        #         "ttFCNC_tuHyy_tphi",
-        #         "Hl_Hyyl_150",
-        #         "Hl_Hyyl_300",
-        #         "Hl_Hyyl_450",
-        #         "WlZvHv_Hyyl_200",
-        #         "WlZvHv_Hyyl_400",
-        #         "WlZvHv_Hyyl_600",
-        #         "BB_bHNbHyyN_500_180_50",
-        #         "BB_bHNbHyyN_1000_205_60",
-        #         "BB_bHNbHyyN_1200_205_60",
-        #     ]
-        # ]
+        ret = {}
+        ret.update(
+            {"nonres_yy_jjj": PlotEvents.req(self, process="nonres_yy_jjj", n_events=1e8, **config)}
+        )
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=4e6, **config)
+                for process in [
+                    "ggh_yy",
+                    "ttH_yy",
+                    "vbf_yy",
+                    "vh_yy",
+                    "WN_HyyN_150",
+                    "WN_HyyN_200",
+                    "WN_HyyN_300",
+                    "WN_HyyN_600",
+                    "XSH_500_100",
+                    "XSH_750_100_ll",
+                    "TT_tZNtHyyN",
+                    "ZpHyyA_200",
+                    "ZpHyyA_500",
+                    "thFCNC_ctHyy_tcphi",
+                    "thFCNC_utHyy_tphi",
+                    "ttFCNC_tcHyy_tcphi",
+                    "ttFCNC_tuHyy_tphi",
+                    "Hl_Hyyl_150",
+                    "Hl_Hyyl_300",
+                    "Hl_Hyyl_450",
+                    "WlZvHv_Hyyl_200",
+                    "WlZvHv_Hyyl_400",
+                    "WlZvHv_Hyyl_600",
+                    "BB_bHNbHyyN_500_180_50",
+                    "BB_bHNbHyyN_1000_205_60",
+                    "BB_bHNbHyyN_1200_205_60",
+                ]
+            }
+        )
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=2e7, **config)
+                for process in [
+                    "ZpHyyA_500",
+                ]
+            }
+        )
         return ret
+
+    def output(self):
+        return self.local_directory_target("summary.json")
+
+    def run(self):
+        summary = {
+            process: req.input()["cutflow"].load()["good"]
+            for process, req in self.requires().items()
+        }
+        self.output().dump(summary)
 
 
 class PlotEventsContrastiveWrapper(BaseTask, law.WrapperTask):
