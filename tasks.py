@@ -480,7 +480,11 @@ class SkimEvents(
         df["pythia_filter_efficiency"] = pythia_filter_efficiency
 
         # Write events to hdf5
-        df.to_hdf(self.output()["events"].path, key="events")
+        df.to_hdf(
+            self.output()["events"].path,
+            key="events",
+            format="table",
+        )
 
 
 class PlotEvents(SkimEvents):
