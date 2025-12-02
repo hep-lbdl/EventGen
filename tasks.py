@@ -459,9 +459,9 @@ class SkimEvents(
         events = output["events"]
         df = pd.DataFrame(events.to_numpy().data)
 
-        # add efficiencies
-        eff = cutflow["good"] / cutflow["total"]
-        df["selection_efficiency"] = eff
+        # add weight sum pre-selection
+        df["sumw_presel"] = cutflow["sumw_presel"]
+        df["sumw_postsel"] = cutflow["sumw_postsel"]
 
         # Write cross-section info for MadGraph
         if self.has_madgraph_config:
@@ -579,10 +579,13 @@ class PlotEventsWrapper(BaseTask):
         return self.local_directory_target("summary.json")
 
     def run(self):
-        summary = {
-            process: req.input()["cutflow"].load()["good"]
-            for process, req in self.requires().items()
-        }
+        summary = {}
+        for process, req in self.requires().items():
+            cutflow = req.input()["cutflow"].load()
+            summary[process] = {
+                "good": cutflow["n_good"],
+                "total": cutflow["n_total"],
+            }
         self.output().dump(summary)
 
 

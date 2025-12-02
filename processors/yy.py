@@ -109,8 +109,10 @@ class Processor(processor.ProcessorABC):
         scale = lambda x: x * 1_000
         return {
             "cutflow": {
-                "total": ak.num(good, axis=0),
-                "good": ak.sum(good),
+                "n_total": ak.num(good, axis=0),
+                "n_good": ak.sum(good),
+                "sumw_presel": ak.sum(event_weight),
+                "sumw_postsel": ak.sum(event_weight[good]),
             },
             "events": ak.zip(
                 {
