@@ -1,11 +1,16 @@
+import gc
+
 import numpy as np
 import awkward as ak
 import coffea.processor as processor
 from coffea.nanoevents.methods import candidate
-# adding truth filter for Hyy
-# logic: count photon from  daughters of PID=25 
+
 
 class Processor(processor.ProcessorABC):
+    """
+    adding truth filter for all particles
+    """
+
     def postprocess(self, accumulator):
         pass
 
@@ -58,15 +63,16 @@ class Processor(processor.ProcessorABC):
         event_number = events.Event.Number
 
         # event selection
-        cut_j10 = ak.fill_none(jets[:, 0].pt > 10, False)\
+        cut_j10 = ak.fill_none(jets[:, 0].pt > 10, False)
         good = cut_j10
 
         # Higgs truth match
-        part_Higgs=(events.Particle.PID==25)
-        Higgs_D1=events.Particle.D1[part_Higgs]
-        Higgs_D2=events.Particle.D2[part_Higgs]
-        Higgs_D1_n_y=ak.count_nonzero(events.Particle.PID[Higgs_D1]==22,axis=-1)
-        Higgs_D2_n_y=ak.count_nonzero(events.Particle.PID[Higgs_D2]==22,axis=-1)
+        part_Higgs = events.Particle.PID == 25
+
+        Higgs_D1 = events.Particle.D1[part_Higgs]
+        Higgs_D2 = events.Particle.D2[part_Higgs]
+        Higgs_D1_n_y = ak.count_nonzero(events.Particle.PID[Higgs_D1] == 22, axis=-1)
+        Higgs_D2_n_y = ak.count_nonzero(events.Particle.PID[Higgs_D2] == 22, axis=-1)
         cut_2y = ak.fill_none((Higgs_D1_n_y + Higgs_D2_n_y) >= 2, False)
         good = good & cut_2y
         del cut_2y

@@ -12,6 +12,7 @@ from coffea.dataset_tools import (
     preprocess,
 )
 from matplotlib import pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import dask
 from dask.distributed import Client
 from dask import delayed
@@ -58,13 +59,19 @@ class ProcessMixin:
     @property
     def process_config_dir(self):
         return f"{os.getenv('GEN_CODE')}/config/processes/{self.process}"
-    
+
     @property
-    def common_model_dir(self): # used to load common UFO models -- no need to copy every time
+    def common_model_dir(self):
+        """
+        load common UFO models
+        """
         return f"{os.getenv('GEN_CODE')}/config/models"
-    
+
     @property
-    def common_param_dir(self): # used to load common param_card (e.g. decay width) -- no need to copy every time
+    def common_param_dir(self):
+        """
+        load common param_card
+        """
         return f"{os.getenv('GEN_CODE')}/config/params"
 
     @property
@@ -93,16 +100,16 @@ class DetectorMixin:
 
     @property
     def detector_config(self):
-        user_config = f"{os.getenv('GEN_CODE')}/config/cards/{self.detector_config_file}"
-        default_config = f"{os.getenv('DELPHES_DIR')}/cards/{self.detector_config_file}"
+        filename = self.detector_config_file
+        user_config = f"{os.getenv('GEN_CODE')}/config/cards/{filename}"
+        default_config = f"{os.getenv('DELPHES_DIR')}/cards/{filename}"
         if os.path.exists(user_config):
             return user_config
         elif os.path.exists(default_config):
             return default_config
         else:
-            raise FileNotFoundError(
-                f"Detector configuration file not found: {self.detector_config_file}"
-            )
+            raise FileNotFoundError(f"Detector configuration  not found: {filename}")
+
 
 class ProcessorMixin:
     processor = law.Parameter(default="test")
@@ -356,7 +363,6 @@ class SkimEvents(
     qos = "shared"
     arch = "cpu"
 
-
     step_size = luigi.IntParameter(default=0)
 
     def requires(self):
@@ -378,9 +384,9 @@ class SkimEvents(
 
         # Start Preprocessing
         if self.step_size > 0:
-            dataset_runnable, _ = preprocess(fset,step_size=self.step_size)
+            dataset_runnable, _ = preprocess(fset, step_size=self.step_size)
         else:
-            dataset_runnable, _ = preprocess(fset)  
+            dataset_runnable, _ = preprocess(fset)
 
         # Apply to Fileset
         to_compute = apply_to_fileset(
@@ -419,19 +425,24 @@ class PlotEvents(SkimEvents):
         return self.local_directory_target("plots.pdf")
 
     def run(self):
-        # Read the DataFrame from the HDF5 file
         df = pd.read_hdf(self.input()["events"].path, key="events")
 
-        # Plot the Dataframe
-        df.hist(figsize=(15, 8), log=True)
-        plt.suptitle(
-            f"Process {self.process} @ {self.detector} using {self.processor} processor"
-        )
-        plt.tight_layout()
-
-        # Save plot
+        # Save plots
         self.output().parent.touch()
-        plt.savefig(self.output().path)
+        with PdfPages(self.output().path) as pdf:
+            for column in df.columns:
+                fig, ax = plt.subplots()
+                if not df[column].notna().any():
+                    continue
+                plt.hist(df[column], bins=50, alpha=0.7)
+                plt.title(
+                    f"Process {self.process} @ {self.detector} using {self.processor} proc."
+                )
+
+                plt.xlabel(column)
+                plt.ylabel("Entries")
+                plt.tight_layout()
+                pdf.savefig()
 
 
 class PlotEventsWrapper(BaseTask, law.WrapperTask):

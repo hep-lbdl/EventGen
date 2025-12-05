@@ -79,7 +79,8 @@ action() {
     fi
 
     # Activate conda environment eventgen
-    conda activate madgraph
+    conda activate eventgen
+    echo "Using conda env 'eventgen', for madgraph NLO processes use env 'madgraph'"
 
     # law setup
     source "$( law completion )" ""
