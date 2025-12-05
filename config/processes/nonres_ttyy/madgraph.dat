@@ -22,10 +22,7 @@ import model sm-no_b_mass
 define p = g u c d s b u~ c~ d~ s~ b~
 
 # Specify process(es) to run
-generate p p > a a
-add process p p > a a j
-add process p p > a a j j
-add process p p > a a j j j
+generate p p > t t~ a a
 
 output OUTPUT_PLACEHOLDER
 launch
