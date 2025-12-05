@@ -34,3 +34,24 @@ def parse_pythia_output(pythia_output):
         pythia_output.split("ResonanceDecayFilterHook efficiency = ")[1].splitlines()[0]
     )
     return val, unc, filter_efficiency
+
+
+def pythia_xsec_modulation(pythia_config):
+    """
+    Get cross-section modulation based on pythia config.
+    Only use if MadGraph is used to generate the hard process.
+    Checks that patterns start lines.
+    """
+    modulations = {
+        ("25:onMode = off", "25:onIfMatch = 22 22"): 2.270e-3,  # H->yy BR
+        # ("other_pattern1", "other_pattern2"): factor,
+    }
+    
+    modulation = 1.0
+    config_lines = pythia_config.split('\n')
+    
+    for patterns, factor in modulations.items():
+        if all(any(line.startswith(pattern) for line in config_lines) for pattern in patterns):
+            modulation *= factor
+
+    return modulation

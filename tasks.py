@@ -20,7 +20,7 @@ from dask import delayed
 
 from utils.numpy import NumpyEncoder
 from utils.infrastructure import ClusterMixin, silentremove
-from utils.physics import parse_mg_output, parse_pythia_output
+from utils.physics import parse_mg_output, parse_pythia_output, pythia_xsec_modulation
 
 
 class BaseTask(law.Task):
@@ -476,6 +476,13 @@ class SkimEvents(
         one_pythia_job = self.get_single_job(self.input())
         pythia_out = one_pythia_job["out"].load()
         pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(pythia_out)
+        if self.has_madgraph_config:
+            # Apply modulation factors (pythia PDG filter not reflected in xsec)
+            pythia_config = one_pythia_job["config"].load()
+            modulation = pythia_xsec_modulation(pythia_config)
+            pythia_xsec *= modulation
+            pythia_xsec_unc *= modulation
+
         df["pythia_xsec [fb]"], df["pythia_xsec_unc [fb]"] = pythia_xsec, pythia_xsec_unc
         df["pythia_filter_efficiency"] = pythia_filter_efficiency
 
