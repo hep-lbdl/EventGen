@@ -20,19 +20,18 @@
 #************************************************************
 import model sm-no_b_mass
 define p = g u c d s b u~ c~ d~ s~ b~
+define j = g u c d s b u~ c~ d~ s~ b~
+define ll = e- e+ mu- mu+ ve ve~ vm vm~
 
 # Specify process(es) to run
-generate p p > a a
-add process p p > a a j
-add process p p > a a j j
-add process p p > a a j j j
+generate p p > ll ll a a
+add process p p > ll ll a a j
+add process p p > ll ll a a j j 
 
 output OUTPUT_PLACEHOLDER
 launch
 
 set nevents NEVENTS_PLACEHOLDER
-set iseed SEED_PLACEHOLDER
-
 set ebeam1 EBEAM_PLACEHOLDER
 set ebeam2 EBEAM_PLACEHOLDER
 
