@@ -585,11 +585,21 @@ class PlotEventsWrapper(BaseTask):
     def run(self):
         summary = {}
         for process, req in self.requires().items():
+            events = pd.read_hdf(req.input()["events"].path, stop=1)
+            event_summary = {
+                identifier: float(events[identifier].iloc[0])
+                for identifier in [
+                    "mg_xsec [fb]",
+                    "pythia_xsec [fb]",
+                    "pythia_filter_efficiency",
+                ]
+            }
             cutflow = req.input()["cutflow"].load()
             summary[process] = {
                 "good": cutflow["n_good"],
                 "total": cutflow["n_total"],
             }
+            summary[process].update(event_summary)
         self.output().dump(summary)
 
 
