@@ -540,16 +540,23 @@ class PlotEvents(SkimEvents):
                 plt.close()
 
 
-class PlotEventsWrapper(BaseTask):
+class PlotEventsWrapper(ProcessorMixin, BaseTask):
     def requires(self):
         config = dict(
             detector="ATLAS_fatjet_skimAll",
-            processor="yy",
             ecm=13000.0,
         )
         ret = {}
         ret.update(
-            {"nonres_yy_jjj": PlotEvents.req(self, process="nonres_yy_jjj", n_events=1e8, **config)}
+            {
+                process: PlotEvents.req(self, process=process, n_events=2e7, **config)
+                for process in [
+                    "nonres_yy_jjj",
+                    "nonres_llyy_jj",
+                    "nonres_ttyy",
+                    "ZpHyyA_500",
+                ]
+            }
         )
         ret.update(
             {
@@ -584,14 +591,6 @@ class PlotEventsWrapper(BaseTask):
                 ]
             }
         )
-        ret.update(
-            {
-                process: PlotEvents.req(self, process=process, n_events=2e7, **config)
-                for process in [
-                    "ZpHyyA_500",
-                ]
-            }
-        )
         return ret
 
     def output(self):
@@ -616,71 +615,3 @@ class PlotEventsWrapper(BaseTask):
             }
             summary[process].update(event_summary)
         self.output().dump(summary)
-
-
-class PlotEventsContrastiveWrapper(BaseTask, law.WrapperTask):
-    def requires(self):
-        config = dict(
-            processor="contrastive",
-            ecm=13000.0,
-        )
-        req = []
-        req += [
-            PlotEvents.req(
-                self,
-                process="nonres_yy_jjj",
-                n_events=3e7,
-                detector="ATLAS_fatjet",
-                **config,
-            )
-        ]
-        req += [
-            PlotEvents.req(
-                self,
-                process=process,
-                n_events=2e6,
-                detector="ATLAS_fatjet",
-                **config,
-            )
-            for process in [
-                "ggh_yy",
-                "ttH_yy",
-                "vbf_yy",
-                "vh_yy",
-                "WN_HyyN_150",
-                "WN_HyyN_200",
-                "WN_HyyN_300",
-                "WN_HyyN_600",
-                "XSH_500_100",
-                "XSH_750_100_ll",
-                "TT_tZNtHyyN",
-                "ZpHyyA_200",
-                "ZpHyyA_500",
-                "thFCNC_ctHyy_tcphi",
-                "thFCNC_utHyy_tphi",
-                "ttFCNC_tcHyy_tcphi",
-                "ttFCNC_tuHyy_tphi",
-            ]
-        ]
-        req += [
-            PlotEvents.req(
-                self,
-                process=process,
-                n_events=2e6,
-                n_max=1e5,
-                detector="ATLAS_fatjet_skimAll",
-                **config,
-            )
-            for process in [
-                "Hl_Hyyl_150",
-                "Hl_Hyyl_300",
-                "Hl_Hyyl_450",
-                "WlZvHv_Hyyl_200",
-                "WlZvHv_Hyyl_400",
-                "WlZvHv_Hyyl_600",
-                "BB_bHNbHyyN_500_180_50",
-                "BB_bHNbHyyN_1000_205_60",
-                "BB_bHNbHyyN_1200_205_60",
-            ]
-        ]
-        return req
