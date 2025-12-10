@@ -51,9 +51,10 @@ class Processor(processor.ProcessorABC):
         # leptons
         sel_el = (events.Electron.pt > 10) & (events.Electron.eta < 2.5) & (events.Electron.eta > -2.5)  # fmt: skip
         sel_mu = (events.Muon.pt > 10) & (events.Muon.eta < 2.7) & (events.Muon.eta > -2.7)
+
+        # analyze lepton flavor multiplicity
         sel_n_e = ak.sum(sel_el, axis=-1)
         sel_n_mu = ak.sum(sel_mu, axis=-1)
-        # analyzing the charge and flavor
         sel_is_ee = sel_n_e == 2
         sel_is_mumu = sel_n_mu == 2
         sel_is_emu = (sel_n_e == 1) & (sel_n_mu == 1)
@@ -61,49 +62,44 @@ class Processor(processor.ProcessorABC):
         sel2_el = pad(events.Electron[sel_el], 2)
         sel2_mu = pad(events.Muon[sel_mu], 2)
 
-        fill0 = lambda x: ak.fill_none(x, 0)
-        sel2_el_ch = fill0(pad(events.Electron.Charge, 2))
-        sel2_mu_ch = fill0(pad(events.Muon.Charge, 2))
-        sel_is_SS = (
-            (sel_is_ee & (sel2_el_ch[:, 0] * sel2_el_ch[:, 1] > 0))
-            | (sel_is_emu & (sel2_el_ch[:, 0] * sel2_mu_ch[:, 1] > 0))
-            | (sel_is_mumu & (sel2_mu_ch[:, 0] * sel2_mu_ch[:, 1] > 0))
-        )
-
         sel2_el_4vec = ak.zip(
             {
-                "pt": fill0(sel2_el.pt),
-                "eta": fill0(sel2_el.eta),
-                "phi": fill0(sel2_el.phi),
+                "pt": sel2_el.pt,
+                "eta": sel2_el.eta,
+                "phi": sel2_el.phi,
                 "mass": ak.ones_like(sel2_el.pt) * EL_MASS_GEV,
-                "charge": ak.zeros_like(sel2_el.pt),
+                "charge": sel2_el.Charge,
             },
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
         sel2_mu_4vec = ak.zip(
             {
-                "pt": fill0(sel2_mu.pt),
-                "eta": fill0(sel2_mu.eta),
-                "phi": fill0(sel2_mu.phi),
+                "pt": sel2_mu.pt,
+                "eta": sel2_mu.eta,
+                "phi": sel2_mu.phi,
                 "mass": ak.ones_like(sel2_mu.pt) * MU_MASS_GEV,
-                "charge": ak.zeros_like(sel2_mu.pt),
+                "charge": sel2_mu.Charge,
             },
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
-        # probably ak.where is smarted
+
+        # analyzing the charge and flavor
+        sel2_el_ch = sel2_el_4vec.charge
+        sel2_mu_ch = sel2_mu_4vec.charge
+        sel_is_SS = (
+            (sel_is_ee & (sel2_el_ch[:, 0] * sel2_el_ch[:, 1] > 0))
+            | (sel_is_emu & (sel2_el_ch[:, 0] * sel2_mu_ch[:, 1] > 0))
+            | (sel_is_mumu & (sel2_mu_ch[:, 0] * sel2_mu_ch[:, 1] > 0))
+        )
+
+        # Veto Z peak
+        m_ee = (sel2_el_4vec[:, 0] + sel2_el_4vec[:, 1]).mass
+        m_mm = (sel2_mu_4vec[:, 0] + sel2_mu_4vec[:, 1]).mass
         sel_is_Zveto = ~(
-            (
-                sel_is_ee
-                & ((sel2_el_4vec[:, 0] + sel2_el_4vec[:, 1]).mass > Z_MASS_GEV - 10)
-                & ((sel2_el_4vec[:, 0] + sel2_el_4vec[:, 1]).mass < Z_MASS_GEV + 10)
-            )
-            | (
-                sel_is_mumu
-                & ((sel2_mu_4vec[:, 0] + sel2_mu_4vec[:, 1]).mass > Z_MASS_GEV - 10)
-                & ((sel2_mu_4vec[:, 0] + sel2_mu_4vec[:, 1]).mass < Z_MASS_GEV + 10)
-            )
+            (sel_is_ee & (m_ee > Z_MASS_GEV - 10) & (m_ee < Z_MASS_GEV + 10))
+            | (sel_is_mumu & (m_mm > Z_MASS_GEV - 10) & (m_mm < Z_MASS_GEV + 10))
         )
 
         jets = pad(events.Jet, 2)
