@@ -177,7 +177,6 @@ class Madgraph(
     # Walltime is dynamic, see below
     cores = 1
     qos = "shared"
-    walltime = "09:59:00"
 
     def requires(self):
         return MadgraphConfig.req(self)
@@ -187,7 +186,16 @@ class Madgraph(
         return f"{os.getenv('MADGRAPH_DIR')}/bin/mg5_aMC"
 
     @property
+    def walltime(self):
+        if self.process in ["nonres_llyy_jj"]:
+            return "23:59:00"
+        else:
+            return "09:59:00"
+
+    @property
     def memory(self):
+        if self.process in ["nonres_llyy_jj"]:
+            return "128GB"
         if self.process in ["nonres_yy_jjj"]:
             return "48GB"
         else:
