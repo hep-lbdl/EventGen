@@ -73,7 +73,7 @@ class Processor(processor.ProcessorABC):
                 "phi": jets.phi,
                 "mass": jets.mass,
                 "charge": ak.zeros_like(jets.pt),
-                "BTagPhys": jets.BTagPhys,
+                "BTag": jets.BTag,
             },
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
@@ -94,7 +94,7 @@ class Processor(processor.ProcessorABC):
                 "phi": fatjets.phi,
                 "mass": fatjets.mass,
                 "charge": ak.zeros_like(fatjets.pt),
-                "BTagPhys": fatjets.BTagPhys,
+                "BTag": fatjets.BTag,
             },
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
@@ -178,7 +178,7 @@ class Processor(processor.ProcessorABC):
                 output[f"{particle}{i+1}_m"] = scale(collection.mass[:, i])[good]
                 if particle in ["jet", "fatjet"]:
                     output[f"{particle}{i+1}_btag"] = ak.fill_none(
-                        collection.BTagPhys[:, i][good], np.nan
+                        collection.BTag[:, i][good], np.nan
                     )
                 if particle == "fatjet":
                     for i in range(n):
