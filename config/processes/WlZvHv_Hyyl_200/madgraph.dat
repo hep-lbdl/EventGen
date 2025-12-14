@@ -11,9 +11,9 @@ define x1 = x1+ x1-
 # LO only
 define susystrong = go ul ur dl dr cl cr sl sr t1 t2 b1 b2 ul~ ur~ dl~ dr~ cl~ cr~ sl~ sr~ t1~ t2~ b1~ b2~
 generate p p > x1 n1 / susystrong
-# optional N jets (remain later since very slow)
-# add process p p > x1 n1 j / susystrong
-# generate p p > x1 n1 j j / susystrong
+# additional N jets (slow but cross-section 1000x more)
+add process p p > x1 n1 j / susystrong
+add process p p > x1 n1 j j / susystrong
 
 output OUTPUT_PLACEHOLDER
 launch

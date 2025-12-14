@@ -9,9 +9,9 @@ define susylq = ul ur dl dr cl cr sl sr
 define susylq~ = ul~ ur~ dl~ dr~ cl~ cr~ sl~ sr~
 # Specify process(es) to run
 generate p p > b1 b1~ $ go susylq susylq~ b2 t1 t2 b2~ t1~ t2~, (b1~ > n2 b~, n2 > n1 h01), (b1 > n2 b, n2 > n1 h01)
-# optional N jets (remain later since very slow)
-# add process p p > b1 b1~ j $ go susylq susylq~ b2 t1 t2 b2~ t1~ t2~
-# add process p p > b1 b1~ j j $ go susylq susylq~ b2 t1 t2 b2~ t1~ t2~
+# additional N jets (slow but cross-section 1000x more)
+add process p p > b1 b1~ j $ go susylq susylq~ b2 t1 t2 b2~ t1~ t2~
+add process p p > b1 b1~ j j $ go susylq susylq~ b2 t1 t2 b2~ t1~ t2~
 
 output OUTPUT_PLACEHOLDER
 launch
