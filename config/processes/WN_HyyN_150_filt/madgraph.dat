@@ -2,7 +2,7 @@
 # References:
 # https://arxiv.org/pdf/2004.10894
 # Table 2 here: https://arxiv.org/pdf/2301.10486
-# Current estimate of cross-section: 0.05614 +- 1.133e-05 pb
+# Current estimate of cross-section: 0.1191 +- 8.959e-06 pb
 import model MSSM_SLHA2
 
 # Define multiparticle labels
@@ -11,8 +11,6 @@ define w = w+ w-
 
 # Specify process(es) to run
 generate p p > x1 n2, x1 > w n1, n2 > h01 n1
-add process p p > x1 n2 j, x1 > w n1, n2 > h01 n1
-add process p p > x1 n2 j j, x1 > w n1, n2 > h01 n1
 
 output OUTPUT_PLACEHOLDER
 launch
@@ -21,9 +19,9 @@ set nevents NEVENTS_PLACEHOLDER
 
 set param_card mass 25 125
 set param_card mass 1000022 0.5
-set param_card mass 1000023 600
-set param_card mass 1000024 600
-set param_card mass -1000024 600
+set param_card mass 1000023 150
+set param_card mass 1000024 150
+set param_card mass -1000024 150
 
 set ebeam1 EBEAM_PLACEHOLDER
 set ebeam2 EBEAM_PLACEHOLDER
