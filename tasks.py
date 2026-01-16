@@ -338,12 +338,15 @@ class DelphesPythia8(
 
     @law.decorator.safe_output
     def run(self):
-        detector_config = self.detector_config
-        pythia_config = self.input()["pythia_config"].load(formatter="text")
+        detector_config_base = self.detector_config
+        pythia_config_base = self.input()["pythia_config"].load(formatter="text")
 
         # Set up the tasks to compute
         cmds = []
         for identifier, (start, stop) in zip(self.identifiers, self.brakets):
+            detector_config = str(detector_config_base)
+            pythia_config = str(pythia_config_base)
+
             config_target = self.output()[identifier]["config"]
             events_target = self.output()[identifier]["events"]
             out_target = self.output()[identifier]["out"]
