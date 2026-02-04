@@ -112,7 +112,7 @@ class Processor(processor.ProcessorABC):
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
-        n_muons = ak.num(muons)
+        n_muons = ak.num(events.Muon)
 
         electrons = pad(events.Electron, 2)
         electrons = ak.zip(
@@ -126,8 +126,7 @@ class Processor(processor.ProcessorABC):
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
-        n_electrons = ak.num(electrons)
-
+        n_electrons = ak.num(events.Electron)
         has_lepton = (n_muons > 0) | (n_electrons > 0)
 
         met_pt = events.MissingET.MET
