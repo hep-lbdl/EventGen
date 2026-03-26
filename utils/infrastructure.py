@@ -1,13 +1,14 @@
 import os
+import logging
 import warnings
-import functools
-from typing import Callable, TypeVar, Any
+import errno
 
 import law
-from dask.distributed import Client, LocalCluster
+from dask.distributed import LocalCluster
 from dask_jobqueue import SLURMCluster
-from dask import delayed, compute
 
+
+logger = logging.getLogger(__name__)
 
 # Filter dask warnings about used port
 warnings.filterwarnings(
@@ -16,7 +17,6 @@ warnings.filterwarnings(
     category=UserWarning,
     module="distributed.node",
 )
-
 
 
 configs = {
@@ -46,6 +46,7 @@ configs = {
     ),
 }
 
+
 class ClusterMixin:
     cluster_mode = law.Parameter(default="local")
 
@@ -61,22 +62,40 @@ class ClusterMixin:
             f'-o {os.getenv("GEN_SLURM")}/slurm-%j.out',
             f'-e {os.getenv("GEN_SLURM")}/slurm-%j.err',
         ]
-    
+
     def start_cluster(self, n_nodes=1):
         # Set up the SLURM cluster
+        # Always scale to the maximum number of nodes,
+        # dask will use however much it needs, until
+        # all jobs are successfully finished
         if self.cluster_mode == "local":
-            cluster = LocalCluster()
-        elif self.cluster_mode == "fullnode": 
-            # should run on allocated interactive node and we use all resources
-            cluster = LocalCluster(32,threads_per_worker=8,memory_limit="12GiB") # use extra thread for IO or potential MT speedup, leave some mem for system and temp swap
+            cluster = LocalCluster(
+                n_workers=n_nodes,
+                threads_per_worker=self.cores,
+                memory_limit=self.memory,
+            )
+        elif self.cluster_mode == "fullnode":
+            # Run on allocated interactive node and we use all resources
+            # use extra thread for IO or potential MT speedup, leave some mem for system and temp swap
+            cluster = LocalCluster(32, threads_per_worker=8, memory_limit="12GiB")
         elif self.cluster_mode == "slurm":
             cluster = SLURMCluster(
                 cores=self.cores,
                 memory=self.memory,
                 walltime=self.walltime,
-                job_extra_directives=[f"--qos={self.qos}", f"-C {self.arch}"] + self.log_dir,
+                job_extra_directives=[f"--qos={self.qos}", f"-C {self.arch}"]
+                + self.log_dir,
             )
-            cluster.scale(n_nodes)
+            cluster.adapt(minimum=1, maximum=n_nodes)
         else:
             raise ValueError(f"Unknown cluster mode {self.cluster}")
+        logger.info(f"Dask dashboard at {cluster.dashboard_link}")
         return cluster
+
+
+def silentremove(filename):
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
+            raise # re-raise exception if a different error occurred

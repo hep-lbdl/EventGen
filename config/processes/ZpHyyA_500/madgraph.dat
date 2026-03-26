@@ -15,6 +15,7 @@ output OUTPUT_PLACEHOLDER
 launch
 
 set nevents NEVENTS_PLACEHOLDER
+set iseed SEED_PLACEHOLDER
 
 set param_card mass 25 125
 set param_card mass 5000001 500

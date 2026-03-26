@@ -19,6 +19,7 @@ output OUTPUT_PLACEHOLDER
 launch
 
 set nevents NEVENTS_PLACEHOLDER
+set iseed SEED_PLACEHOLDER
 
 # Higgs-lepton coupling not included in UFO thus not able to decay x1 and n1 directly. use decya table
 PARAM_PLACEHOLDER/RPV_C1Hl.dat

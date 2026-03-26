@@ -19,6 +19,7 @@
 #*                                                          *
 #************************************************************
 import model sm
+
 # Define multiparticle labels
 define p = g u c d s u~ c~ d~ s~
 define j = g u c d s u~ c~ d~ s~
@@ -26,6 +27,7 @@ define l+ = e+ mu+
 define l- = e- mu-
 define vl = ve vm vt
 define vl~ = ve~ vm~ vt~
+
 # Specify process(es) to run
 generate p p > e- ve~ @1
 add process p p > e- ve~ j @2
@@ -35,5 +37,7 @@ output OUTPUT_PLACEHOLDER
 launch
 
 set nevents NEVENTS_PLACEHOLDER
+set iseed SEED_PLACEHOLDER
+
 set ebeam1 EBEAM_PLACEHOLDER
 set ebeam2 EBEAM_PLACEHOLDER

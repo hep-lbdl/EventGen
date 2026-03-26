@@ -3,6 +3,7 @@ import awkward as ak
 import coffea.processor as processor
 from coffea.nanoevents.methods import candidate
 
+# TODO: Define somewhere else
 Z_MASS_GEV = 91.1880
 EL_MASS_GEV = 0.00051099895
 MU_MASS_GEV = 0.1056583755
@@ -44,25 +45,16 @@ class Processor(processor.ProcessorABC):
         Overlap removal skip now. Use Delphes unique object.
         """
         # inclusive photon 22GeV 2p5 eta
-        sel_ph = (
-            (events.Photon.pt > 22)
-            & (events.Photon.eta < 2.5)
-            & (events.Photon.eta > -2.5)
-        )
+        sel_ph = (events.Photon.pt > 22) & (events.Photon.eta < 2.5) & (events.Photon.eta > -2.5)
         sel_n_ph = ak.sum(sel_ph, axis=-1)
 
         # leptons
-        sel_el = (
-            (events.Electron.pt > 10)
-            & (events.Electron.eta < 2.5)
-            & (events.Electron.eta > -2.5)
-        )
-        sel_mu = (
-            (events.Muon.pt > 10) & (events.Muon.eta < 2.7) & (events.Muon.eta > -2.7)
-        )
+        sel_el = (events.Electron.pt > 10) & (events.Electron.eta < 2.5) & (events.Electron.eta > -2.5)  # fmt: skip
+        sel_mu = (events.Muon.pt > 10) & (events.Muon.eta < 2.7) & (events.Muon.eta > -2.7)
+
+        # analyze lepton flavor multiplicity
         sel_n_e = ak.sum(sel_el, axis=-1)
         sel_n_mu = ak.sum(sel_mu, axis=-1)
-        # analyzing the charge and flavor
         sel_is_ee = sel_n_e == 2
         sel_is_mumu = sel_n_mu == 2
         sel_is_emu = (sel_n_e == 1) & (sel_n_mu == 1)
@@ -70,49 +62,44 @@ class Processor(processor.ProcessorABC):
         sel2_el = pad(events.Electron[sel_el], 2)
         sel2_mu = pad(events.Muon[sel_mu], 2)
 
-        fill0 = lambda x: ak.fill_none(x, 0)
-        sel2_el_ch = fill0(pad(events.Electron.Charge, 2))
-        sel2_mu_ch = fill0(pad(events.Muon.Charge, 2))
-        sel_is_SS = (
-            (sel_is_ee & (sel2_el_ch[:, 0] * sel2_el_ch[:, 1] > 0))
-            | (sel_is_emu & (sel2_el_ch[:, 0] * sel2_mu_ch[:, 1] > 0))
-            | (sel_is_mumu & (sel2_mu_ch[:, 0] * sel2_mu_ch[:, 1] > 0))
-        )
-
         sel2_el_4vec = ak.zip(
             {
-                "pt": fill0(sel2_el.pt),
-                "eta": fill0(sel2_el.eta),
-                "phi": fill0(sel2_el.phi),
+                "pt": sel2_el.pt,
+                "eta": sel2_el.eta,
+                "phi": sel2_el.phi,
                 "mass": ak.ones_like(sel2_el.pt) * EL_MASS_GEV,
-                "charge": ak.zeros_like(sel2_el.pt),
+                "charge": sel2_el.Charge,
             },
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
         sel2_mu_4vec = ak.zip(
             {
-                "pt": fill0(sel2_mu.pt),
-                "eta": fill0(sel2_mu.eta),
-                "phi": fill0(sel2_mu.phi),
+                "pt": sel2_mu.pt,
+                "eta": sel2_mu.eta,
+                "phi": sel2_mu.phi,
                 "mass": ak.ones_like(sel2_mu.pt) * MU_MASS_GEV,
-                "charge": ak.zeros_like(sel2_mu.pt),
+                "charge": sel2_mu.Charge,
             },
             with_name="PtEtaPhiMCandidate",
             behavior=candidate.behavior,
         )
-        # probably ak.where is smarted
+
+        # analyzing the charge and flavor
+        sel2_el_ch = sel2_el_4vec.charge
+        sel2_mu_ch = sel2_mu_4vec.charge
+        sel_is_SS = (
+            (sel_is_ee & (sel2_el_ch[:, 0] * sel2_el_ch[:, 1] > 0))
+            | (sel_is_emu & (sel2_el_ch[:, 0] * sel2_mu_ch[:, 1] > 0))
+            | (sel_is_mumu & (sel2_mu_ch[:, 0] * sel2_mu_ch[:, 1] > 0))
+        )
+
+        # Veto Z peak
+        m_ee = (sel2_el_4vec[:, 0] + sel2_el_4vec[:, 1]).mass
+        m_mm = (sel2_mu_4vec[:, 0] + sel2_mu_4vec[:, 1]).mass
         sel_is_Zveto = ~(
-            (
-                sel_is_ee
-                & ((sel2_el_4vec[:, 0] + sel2_el_4vec[:, 1]).mass > Z_MASS_GEV - 10)
-                & ((sel2_el_4vec[:, 0] + sel2_el_4vec[:, 1]).mass < Z_MASS_GEV + 10)
-            )
-            | (
-                sel_is_mumu
-                & ((sel2_mu_4vec[:, 0] + sel2_mu_4vec[:, 1]).mass > Z_MASS_GEV - 10)
-                & ((sel2_mu_4vec[:, 0] + sel2_mu_4vec[:, 1]).mass < Z_MASS_GEV + 10)
-            )
+            (sel_is_ee & (m_ee > Z_MASS_GEV - 10) & (m_ee < Z_MASS_GEV + 10))
+            | (sel_is_mumu & (m_mm > Z_MASS_GEV - 10) & (m_mm < Z_MASS_GEV + 10))
         )
 
         jets = pad(events.Jet, 2)
@@ -132,9 +119,7 @@ class Processor(processor.ProcessorABC):
         dijet_delta_r = jets[:, 0].delta_r(jets[:, 1])
         ht_30 = ak.sum(events.Jet.pt[events.Jet.pt > 30], axis=-1)
         # count j and b here
-        sel_jet = (
-            (events.Jet.pt > 25) & (events.Jet.eta < 4.4) & (events.Jet.eta > -4.4)
-        )
+        sel_jet = (events.Jet.pt > 25) & (events.Jet.eta < 4.4) & (events.Jet.eta > -4.4)
         sel_bjet = (
             (events.Jet.pt > 25)
             & (events.Jet.eta < 2.5)
@@ -149,7 +134,6 @@ class Processor(processor.ProcessorABC):
         sel_is_thad = (sel_n_lep == 0) & (sel_n_j == 3) & (sel_n_b == 1)
 
         fatjets = pad(events.FatJet, 2)
-        fatjets_btag = ak.fill_none(fatjets.BTag, np.nan)
         fatjets_tau = ak.pad_none(fatjets.Tau_5, target=4, clip=True, axis=-1)
         fatjets_tau32 = fatjets_tau[:, :, 2] / fatjets_tau[:, :, 1]
         fatjets_tau43 = fatjets_tau[:, :, 3] / fatjets_tau[:, :, 2]
@@ -211,8 +195,10 @@ class Processor(processor.ProcessorABC):
         scale = lambda x: x * 1_000
         return {
             "cutflow": {
-                "total": ak.num(good, axis=0),
-                "good": ak.sum(good),
+                "n_total": ak.num(good, axis=0),
+                "n_good": ak.sum(good),
+                "sumw_presel": ak.sum(event_weight),
+                "sumw_postsel": ak.sum(event_weight[good]),
             },
             "events": ak.zip(
                 {
@@ -253,7 +239,7 @@ class Processor(processor.ProcessorABC):
                     "fatjet1_eta": fatjets.eta[:, 0][good],
                     "fatjet1_phi": fatjets.phi[:, 0][good],
                     "fatjet1_m": scale(fatjets.m[:, 0])[good],
-                    "fatjet1_btag": fatjets_btag[:, 0][good],
+                    "fatjet1_btag": fatjets.BTag[:, 0][good],
                     "fatjet1_tau32": fatjets_tau32[:, 0][good],
                     "fatjet1_tau43": fatjets_tau43[:, 0][good],
                     # fatjet 2
@@ -261,7 +247,7 @@ class Processor(processor.ProcessorABC):
                     "fatjet2_eta": fatjets.eta[:, 1][good],
                     "fatjet2_phi": fatjets.phi[:, 1][good],
                     "fatjet2_m": scale(fatjets.m[:, 1])[good],
-                    "fatjet2_btag": fatjets_btag[:, 1][good],
+                    "fatjet2_btag": fatjets.BTag[:, 1][good],
                     "fatjet2_tau32": fatjets_tau32[:, 1][good],
                     "fatjet2_tau43": fatjets_tau43[:, 1][good],
                     # leptons

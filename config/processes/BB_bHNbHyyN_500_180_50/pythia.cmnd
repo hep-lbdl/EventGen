@@ -23,6 +23,9 @@ Beams:LHEF = INPUT_PLACEHOLDER
 ! 5) Higgs decay settings, let it freely decay and then filter the final states
 25:m0 = 125.0                       ! Higgs mass in GeV
 25:onMode = on                     ! Turn on all Higgs decays
+ResonanceDecayFilter:filter = on
+ResonanceDecayFilter:mothers = 25
+ResonanceDecayFilter:daughters = 22,22
 
 ! 6) SUSY decays
 SUSY:all = on                       ! Enable all SUSY decays

@@ -5,6 +5,7 @@ import shutil
 
 import luigi
 import law
+import numpy as np
 import pandas as pd
 from coffea.nanoevents import DelphesSchema
 from coffea.dataset_tools import (
@@ -18,7 +19,8 @@ from dask.distributed import Client
 from dask import delayed
 
 from utils.numpy import NumpyEncoder
-from utils.infrastructure import ClusterMixin
+from utils.infrastructure import ClusterMixin, silentremove
+from utils.physics import parse_mg_output, parse_pythia_output, pythia_xsec_modulation
 
 
 class BaseTask(law.Task):
@@ -147,7 +149,8 @@ class ChunkedEventsTask(NEventsMixin):
     @property
     def brakets(self):
         n_events = int(self.n_events)
-        starts = range(0, n_events, self.n_max)
+        n_max = int(self.n_max)
+        starts = range(0, n_events, n_max)
         stops = list(starts)[1:] + [n_events]
         brakets = zip(starts, stops)
         return list(brakets)
@@ -167,11 +170,12 @@ class Madgraph(
     ClusterMixin,
     BaseTask,
 ):
+    # Base random seed
+    seed = 42
+
     # SLURM Configuration
-    # Adjusted to 1Mio events of nonres_yy_jjj process
+    # Walltime is dynamic, see below
     cores = 1
-    memory = "64GB"
-    walltime = "24:00:00"
     qos = "shared"
 
     def requires(self):
@@ -181,61 +185,91 @@ class Madgraph(
     def executable(self):
         return f"{os.getenv('MADGRAPH_DIR')}/bin/mg5_aMC"
 
+    @property
+    def walltime(self):
+        if self.process in ["nonres_llyy_jj"]:
+            return "23:59:00"
+        else:
+            return "09:59:00"
+
+    @property
+    def memory(self):
+        if self.process in ["nonres_llyy_jj"]:
+            return "128GB"
+        if self.process in ["nonres_yy_jjj"]:
+            return "48GB"
+        else:
+            return "24GB"
+
     def output(self):
         return {
             identifier: {
                 "config": self.local_target(f"{identifier}/config.dat"),
-                "madgraph_dir": self.local_directory_target(f"{identifier}/out"),
-                "events": self.local_target(
-                    f"{identifier}/out/Events/run_01/unweighted_events.lhe.gz"
-                ),
+                "madgraph_dir": self.local_directory_target(f"{identifier}/mg"),
+                "events": self.local_target(f"{identifier}/mg/Events/run_01/unweighted_events.lhe.gz"),  # fmt: skip
+                "out": self.local_target(f"{identifier}/out.txt"),
             }
             for identifier in self.identifiers
         }
+
+    @staticmethod
+    def fun(info):
+        exe, config, out = info
+
+        # Process
+        cmd = [exe, "-f", config]
+        with open(out, "w") as out_file:
+            result = subprocess.call(cmd, stdout=out_file, stderr=out_file)
+
+        return result
 
     def run(self):
         madgraph_config_base = self.input().load(formatter="text")
         # Set up the tasks to compute
         cmds = []
-        for identifier, (start, stop) in zip(self.identifiers, self.brakets):
+
+        for i, identifier, (start, stop) in zip(
+            range(len(self.identifiers)),
+            self.identifiers,
+            self.brakets,
+        ):
             config_target = self.output()[identifier]["config"]
             madgraph_target = self.output()[identifier]["madgraph_dir"]
             events_target = self.output()[identifier]["events"]
+            out_target = self.output()[identifier]["out"]
+
             # In case the task already successfully finished an identifier
             if events_target.exists():
                 continue
 
             n_events = stop - start
             madgraph_config = str(madgraph_config_base)
-            madgraph_config = madgraph_config.replace(
-                "NEVENTS_PLACEHOLDER", str(int(n_events))
-            )
-            madgraph_config = madgraph_config.replace(
-                "EBEAM_PLACEHOLDER", str(self.ecm / 2)
-            )
-            madgraph_config = madgraph_config.replace(
-                "OUTPUT_PLACEHOLDER", madgraph_target.path
-            )
-            madgraph_config = madgraph_config.replace(
-                "MODEL_PLACEHOLDER", self.common_model_dir
-            )
-            madgraph_config = madgraph_config.replace(
-                "PARAM_PLACEHOLDER", self.common_param_dir
-            )
+            madgraph_config = madgraph_config.replace("SEED_PLACEHOLDER", str(self.seed + i))
+            madgraph_config = madgraph_config.replace("NEVENTS_PLACEHOLDER", str(int(n_events)))
+            madgraph_config = madgraph_config.replace("EBEAM_PLACEHOLDER", str(self.ecm / 2))
+            madgraph_config = madgraph_config.replace("OUTPUT_PLACEHOLDER", madgraph_target.path)
+            madgraph_config = madgraph_config.replace("MODEL_PLACEHOLDER", self.common_model_dir)
+            madgraph_config = madgraph_config.replace("PARAM_PLACEHOLDER", self.common_param_dir)
             config_target.dump(madgraph_config, formatter="text")
-            cmd = [self.executable, "-f", config_target.path]
-            cmds.append(cmd)
+            out_target.parent.touch()
+
+            cmds.append(
+                [
+                    self.executable,
+                    config_target.path,
+                    out_target.path,
+                ]
+            )
 
         # Connect to the cluster
         cluster = self.start_cluster(len(cmds))
         client = Client(cluster)
 
-        # Submit tasks
-        tasks = [delayed(subprocess.call)(cmd) for cmd in cmds]
-        results = client.compute(tasks)
+        # Use client.map to parallelize the tasks
+        futures = client.map(self.fun, cmds)
 
         # Gather the results
-        results = client.gather(results)
+        client.gather(futures)
 
         # Scale down and close the cluster
         cluster.scale(0)
@@ -277,25 +311,42 @@ class DelphesPythia8(
 
     @property
     def executable(self):
-        if shutil.which("DelphesPythia8"):
-            return "DelphesPythia8"
+        if shutil.which("DelphesPythia8Filtered"):
+            return "DelphesPythia8Filtered"
         else:
             raise Exception("Did you activate the 'eventgen' conda env?")
 
     @staticmethod
-    def call_with_output(cmd, out_path):
-        with open(out_path, "w") as out_file:
+    def fun(info):
+        exe, detector, process, events, out = info
+
+        # Write events to tmp file
+        tmp_events = events + ".tmp"
+
+        # If tmp file exists from a previous run, just remove it
+        silentremove(tmp_events)
+
+        # Process
+        cmd = [exe, detector, process, tmp_events]
+        with open(out, "w") as out_file:
             result = subprocess.call(cmd, stdout=out_file, stderr=out_file)
+
+        # Move events from tmp file to final dir
+        shutil.move(tmp_events, events)
+
         return result
 
     @law.decorator.safe_output
     def run(self):
-        detector_config = self.detector_config
-        pythia_config = self.input()["pythia_config"].load(formatter="text")
+        detector_config_base = self.detector_config
+        pythia_config_base = self.input()["pythia_config"].load(formatter="text")
 
         # Set up the tasks to compute
         cmds = []
         for identifier, (start, stop) in zip(self.identifiers, self.brakets):
+            detector_config = str(detector_config_base)
+            pythia_config = str(pythia_config_base)
+
             config_target = self.output()[identifier]["config"]
             events_target = self.output()[identifier]["events"]
             out_target = self.output()[identifier]["out"]
@@ -308,37 +359,34 @@ class DelphesPythia8(
             out_target.parent.touch()
 
             n_events = stop - start
-            pythia_config = pythia_config.replace(
-                "NEVENTS_PLACEHOLDER", str(int(n_events))
-            )
+            pythia_config = pythia_config.replace("NEVENTS_PLACEHOLDER", str(int(n_events)))
             pythia_config = pythia_config.replace("ECM_PLACEHOLDER", str(self.ecm))
 
             if self.has_madgraph_config:
                 madgraph_events = self.input()["madgraph"][identifier]["events"].path
-                pythia_config = pythia_config.replace(
-                    "INPUT_PLACEHOLDER", madgraph_events
-                )
+                pythia_config = pythia_config.replace("INPUT_PLACEHOLDER", madgraph_events)
 
             config_target.dump(pythia_config, formatter="text")
 
-            cmd = [
-                self.executable,
-                detector_config,
-                config_target.path,
-                events_target.path,
-            ]
-            cmds.append((cmd, out_target.path))
+            cmds.append(
+                [
+                    self.executable,
+                    detector_config,
+                    config_target.path,
+                    events_target.path,
+                    out_target.path,
+                ]
+            )
 
         # Connect to the cluster
         cluster = self.start_cluster(len(cmds))
         client = Client(cluster)
 
-        # Submit tasks
-        tasks = [delayed(self.call_with_output)(cmd, out) for (cmd, out) in cmds]
-        results = client.compute(tasks)
+        # Use client.map to parallelize the tasks
+        futures = client.map(self.fun, cmds)
 
         # Gather the results
-        results = client.gather(results)
+        results = client.gather(futures)
 
         # Scale down and close the cluster
         cluster.scale(0)
@@ -356,14 +404,19 @@ class SkimEvents(
     BaseTask,
 ):
     # SLURM Configuration
-    # Using only one core as task will be IO limited
-    cores = 1
-    memory = "5GB"
-    walltime = "00:05:00"
+    cores = 8
+    walltime = "01:00:00"
     qos = "shared"
     arch = "cpu"
 
     step_size = luigi.IntParameter(default=0)
+
+    @property
+    def memory(self):
+        if self.process in ["nonres_yy_jjj"]:
+            return "60GB"
+        else:
+            return "28GB"
 
     def requires(self):
         return DelphesPythia8.req(self)
@@ -374,13 +427,15 @@ class SkimEvents(
             "events": self.local_target("skimmed.h5"),
         }
 
+    @staticmethod
+    def get_single_job(req_dict):
+        return list(req_dict.values())[0]
+
     @law.decorator.safe_output
     def run(self):
         inputs = self.input()
         # Get FSet
-        fset = {
-            "all": {"files": {inp["events"].path: "Delphes" for inp in inputs.values()}}
-        }
+        fset = {"all": {"files": {inp["events"].path: "Delphes" for inp in inputs.values()}}}
 
         # Start Preprocessing
         if self.step_size > 0:
@@ -396,9 +451,14 @@ class SkimEvents(
         )
 
         # Compute Payload
-        cluster = self.start_cluster(len(inputs))
+        cluster = self.start_cluster(1)
         with Client(cluster) as client:
             (output,) = dask.compute(to_compute)
+
+        # Scale down and close the cluster
+        cluster.scale(0)
+        client.close()
+        cluster.close()
 
         output = output["all"]
 
@@ -406,15 +466,43 @@ class SkimEvents(
         cutflow = output["cutflow"]
         self.output()["cutflow"].dump(cutflow, cls=NumpyEncoder)
 
-        # Write events to h5
+        # Create dataframe from events
         events = output["events"]
         df = pd.DataFrame(events.to_numpy().data)
 
-        # add efficiencies
-        eff = cutflow["good"] / cutflow["total"]
-        df["selection_efficiency"] = eff
+        # add weight sum pre-selection
+        df["sumw_presel"] = cutflow["sumw_presel"]
+        df["sumw_postsel"] = cutflow["sumw_postsel"]
 
-        df.to_hdf(self.output()["events"].path, key="events")
+        # Write cross-section info for MadGraph
+        if self.has_madgraph_config:
+            one_mg_job = self.get_single_job(self.requires().input()["madgraph"])
+            mg_output = one_mg_job["out"].load()
+            mg_xsec, mg_xsec_unc = parse_mg_output(mg_output)
+        else:
+            mg_xsec, mg_xsec_unc = np.nan, np.nan
+        df["mg_xsec [fb]"], df["mg_xsec_unc [fb]"] = mg_xsec, mg_xsec_unc
+
+        # Write cross-section and decay filter info for Pythia
+        one_pythia_job = self.get_single_job(self.input())
+        pythia_out = one_pythia_job["out"].load()
+        pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(pythia_out)
+        if self.has_madgraph_config:
+            # Apply modulation factors (pythia PDG filter not reflected in xsec)
+            pythia_config = one_pythia_job["config"].load()
+            modulation = pythia_xsec_modulation(pythia_config)
+            pythia_xsec *= modulation
+            pythia_xsec_unc *= modulation
+
+        df["pythia_xsec [fb]"], df["pythia_xsec_unc [fb]"] = pythia_xsec, pythia_xsec_unc
+        df["pythia_filter_efficiency"] = pythia_filter_efficiency
+
+        # Write events to hdf5
+        df.to_hdf(
+            self.output()["events"].path,
+            key="events",
+            format="table",
+        )
 
 
 class PlotEvents(SkimEvents):
@@ -426,42 +514,107 @@ class PlotEvents(SkimEvents):
 
     def run(self):
         df = pd.read_hdf(self.input()["events"].path, key="events")
-
         # Save plots
         self.output().parent.touch()
         with PdfPages(self.output().path) as pdf:
             for column in df.columns:
-                fig, ax = plt.subplots()
-                if not df[column].notna().any():
-                    continue
-                plt.hist(df[column], bins=50, alpha=0.7)
-                plt.title(
-                    f"Process {self.process} @ {self.detector} using {self.processor} proc."
-                )
+                values = df[column]
 
+                # Clean values
+                values.replace([np.inf, -np.inf], np.nan, inplace=True)
+                if not values.notna().any():
+                    continue
+                if values.dtype == bool:
+                    values = values.astype(int)
+
+                # Determine number of bins
+                bins = min(len(values.unique() * 2), 50)
+
+                # Plot histogram
+                plt.hist(values, bins=bins, alpha=0.7)
+
+                # Decorate plot
+                title = f"Process {self.process} @ {self.detector} using {self.processor} proc."
+                plt.title(title)
                 plt.xlabel(column)
                 plt.ylabel("Entries")
                 plt.tight_layout()
                 pdf.savefig()
+                plt.close()
 
 
-class PlotEventsWrapper(BaseTask, law.WrapperTask):
+class PlotEventsWrapper(ProcessorMixin, BaseTask):
     def requires(self):
         config = dict(
-            detector="ATLAS_fatjet",
-            processor="yy",
+            detector="ATLAS_fatjet_skimAll",
             ecm=13000.0,
         )
-        return [
-            PlotEvents.req(self, process="nonres_yy_jjj", n_events=3e7, **config),
-            PlotEvents.req(self, process="ggh_yy", n_events=2e6, **config),
-            PlotEvents.req(self, process="ttH_yy", n_events=2e6, **config),
-            PlotEvents.req(self, process="vbf_yy", n_events=2e6, **config),
-            PlotEvents.req(self, process="vh_yy", n_events=2e6, **config),
-            PlotEvents.req(self, process="WN_HyyN_150", n_events=1e6, **config),
-            PlotEvents.req(self, process="WN_HyyN_200", n_events=1e6, **config),
-            PlotEvents.req(self, process="WN_HyyN_300", n_events=1e6, **config),
-            PlotEvents.req(self, process="WN_HyyN_600", n_events=1e6, **config),
-            PlotEvents.req(self, process="XSH_500_100", n_events=1e6, **config),
-            PlotEvents.req(self, process="XSH_750_100_ll", n_events=1e6, **config),
-        ]
+        ret = {}
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=2e7, **config)
+                for process in [
+                    "nonres_yy_jjj",
+                    "nonres_llyy_jj",
+                    "nonres_ttyy",
+                    "ZpHyyA_500",
+                ]
+            }
+        )
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=4e6, **config)
+                for process in [
+                    "ggh_yy",
+                    "ttH_yy",
+                    "vbf_yy",
+                    "vh_yy",
+                    "WN_HyyN_150",
+                    "WN_HyyN_200",
+                    "WN_HyyN_300",
+                    "WN_HyyN_600",
+                    "XSH_500_100",
+                    "XSH_750_100_ll",
+                    "TT_tZNtHyyN",
+                    "ZpHyyA_200",
+                    "ZpHyyA_500",
+                    "thFCNC_ctHyy_tcphi",
+                    "thFCNC_utHyy_tphi",
+                    "ttFCNC_tcHyy_tcphi",
+                    "ttFCNC_tuHyy_tphi",
+                    "Hl_Hyyl_150",
+                    "Hl_Hyyl_300",
+                    "Hl_Hyyl_450",
+                    "WlZvHv_Hyyl_200",
+                    "WlZvHv_Hyyl_400",
+                    "WlZvHv_Hyyl_600",
+                    "BB_bHNbHyyN_500_180_50",
+                    "BB_bHNbHyyN_1000_205_60",
+                    "BB_bHNbHyyN_1200_205_60",
+                ]
+            }
+        )
+        return ret
+
+    def output(self):
+        return self.local_directory_target("summary.json")
+
+    def run(self):
+        summary = {}
+        for process, req in self.requires().items():
+            events = pd.read_hdf(req.input()["events"].path, stop=1)
+            event_summary = {
+                identifier: float(events[identifier].iloc[0])
+                for identifier in [
+                    "mg_xsec [fb]",
+                    "pythia_xsec [fb]",
+                    "pythia_filter_efficiency",
+                ]
+            }
+            cutflow = req.input()["cutflow"].load()
+            summary[process] = {
+                "good": cutflow["n_good"],
+                "total": cutflow["n_total"],
+            }
+            summary[process].update(event_summary)
+        self.output().dump(summary)

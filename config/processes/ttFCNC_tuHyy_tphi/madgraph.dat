@@ -18,6 +18,7 @@ output OUTPUT_PLACEHOLDER
 launch
 
 set nevents NEVENTS_PLACEHOLDER
+set iseed SEED_PLACEHOLDER
 
 PARAM_PLACEHOLDER/ttFCNC_tuH_tphi.dat
 set param_card mass 25 125

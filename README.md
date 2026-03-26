@@ -27,8 +27,11 @@ Use:
 output OUTPUT_PLACEHOLDER
 launch
 set nevents NEVENTS_PLACEHOLDER
+set ebeam1 EBEAM_PLACEHOLDER
+set ebeam2 EBEAM_PLACEHOLDER
 ```
-to set the output directory and the number of events.
+to set the output directory, the number of events, and the energy of the beams.
+See the full card [here](config/processes/test/madgraph.dat).
 
 ### In `pythia.cmnd`
 Use:
@@ -39,6 +42,14 @@ Beams:frameType = 4
 Beams:LHEF = INPUT_PLACEHOLDER
 ```
 to set the number of events and import the correct madgraph produced LHE files.
+See the full card [here](config/processes/test/pythia.cmnd).
+
+## Processors
+Processors are used to skim the data after the generation.
+They are implemented as Coffea Processors.
+Find all implemented processors in the `processors` directory.
+This is also the place to add a new one if you need it.
+The test processor can be found [here](processors/test.py).
 
 ## Workflow
 The workflow is run with `law`.
