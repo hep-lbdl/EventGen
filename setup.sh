@@ -2,7 +2,7 @@
 action() {
     # Set version of used software
     local madgraph_download_dir="https://launchpad.net/mg5amcnlo/3.0/3.6.x/+download"
-    local madgraph_download_file="MG5_aMC_v3.5.9"
+    local madgraph_download_file="MG5_aMC_v3.5.11"
 
     # Set main directories
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
@@ -68,18 +68,24 @@ action() {
 
     # If conda env "madgraph" does not exist create it
     if ! conda env list | grep -q '^madgraph'; then
-        mamba create --name madgraph
-        mamba env update -n madgraph --file madgraph.yml -y
+        yes | conda create --name madgraph
+        yes | conda env update -n madgraph --file madgraph.yml
     fi
 
     # If conda env "eventgen" does not exist create it
     if ! conda env list | grep -q '^eventgen'; then
-        mamba create --name eventgen
-        mamba env update -n eventgen --file eventgen.yml -y
+        yes | conda create --name eventgen
+        yes | conda env update -n eventgen --file eventgen.yml
+        # Install temporary Delphes fix (H->yy filter) from:
+        # https://github.com/qibin2020/delphes/commit/2104fd9
+        CONDA_PREFIX="/$(conda env list | grep -Po 'eventgen\K.*' | cut -d '/' -f2-)"
+        cp /pscratch/sd/d/dnoll/projects/haxad/EventGenDelphes/bin/DelphesPythia8Filtered ${CONDA_PREFIX}/bin/
+        chmod u+x ${CONDA_PREFIX}/bin/DelphesPythia8Filtered
     fi
 
     # Activate conda environment eventgen
-    conda activate madgraph
+    conda activate eventgen
+    echo "Using conda env 'eventgen', for madgraph NLO processes use env 'madgraph'"
 
     # law setup
     source "$( law completion )" ""
