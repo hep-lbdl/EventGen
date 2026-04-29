@@ -10,6 +10,12 @@ import model MSSM_SLHA2
 generate p p > t1 t1~, (t1 > t n2, n2 > h01 n1), (t1~ > t~ n2, n2 > z n1)
 add process p p > t1 t1~, (t1 > t n2, n2 > z n1), (t1~ > t~ n2, n2 > h01 n1)
 
+add process p p > t1 t1~ j, t1 > t h01 n1, t1~ > t~ z n1
+add process p p > t1 t1~ j, t1 > t z n1, t1~ > t~ h01 n1
+
+add process p p > t1 t1~ j j, t1 > t h01 n1, t1~ > t~ z n1
+add process p p > t1 t1~ j j, t1 > t z n1, t1~ > t~ h01 n1
+
 output OUTPUT_PLACEHOLDER
 launch
 
