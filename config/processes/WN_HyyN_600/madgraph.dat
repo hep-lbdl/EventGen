@@ -11,6 +11,8 @@ define w = w+ w-
 
 # Specify process(es) to run
 generate p p > x1 n2, x1 > w n1, n2 > h01 n1
+add process p p > x1 n2 j, x1 > w n1, n2 > h01 n1
+add process p p > x1 n2 j j, x1 > w n1, n2 > h01 n1
 
 output OUTPUT_PLACEHOLDER
 launch
