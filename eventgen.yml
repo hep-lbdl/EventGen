@@ -2,7 +2,7 @@ name: eventgen
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python=3.12
   - ipython
   - law
   - black
@@ -11,7 +11,7 @@ dependencies:
   - dask-jobqueue
   - coffea
   - black
-  - root
+  - root=6.34  # for DelphesPythia8 executable
   - delphes
   - pip
   - pip:
