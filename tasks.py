@@ -557,6 +557,8 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
                     "nonres_yy_jjj",
                     "nonres_llyy_jj",
                     "nonres_ttyy",
+                    "ZpHyyA_300",
+                    "ZpHyyA_400",
                     "ZpHyyA_500",
                 ]
             }
@@ -577,7 +579,7 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
                     "XSH_750_100_ll",
                     "TT_tZNtHyyN",
                     "ZpHyyA_200",
-                    "ZpHyyA_500",
+                    "HH",
                     "thFCNC_ctHyy_tcphi",
                     "thFCNC_utHyy_tphi",
                     "ttFCNC_tcHyy_tcphi",

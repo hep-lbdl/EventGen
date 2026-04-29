@@ -1,7 +1,7 @@
 # HH production
-import model loop_sm
+import model heft
 
-generate p p > h h QED<=2 [noborn=QCD]
+generate p p > h h
 
 output OUTPUT_PLACEHOLDER
 launch
@@ -9,6 +9,7 @@ launch
 set nevents NEVENTS_PLACEHOLDER
 set iseed SEED_PLACEHOLDER
 
+set param_card mass 25 125
 set param_card mass 25 125
 
 set ebeam1 EBEAM_PLACEHOLDER

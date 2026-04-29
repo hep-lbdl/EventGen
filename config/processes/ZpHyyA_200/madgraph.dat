@@ -1,6 +1,6 @@
-# FCNC pp->tH model (u coupling, left-handed)
+# pp -> y1 -> H a
 # References: 
-# https://arxiv.org/pdf/1712.02399
+# https://arxiv.org/abs/2008.05928
 # Table 2 here: https://arxiv.org/pdf/2301.10486
 # Current estimate of cross-section:  pb
 import model MODEL_PLACEHOLDER/ZpHA

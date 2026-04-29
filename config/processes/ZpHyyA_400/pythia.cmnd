@@ -20,9 +20,7 @@ Beams:LHEF = INPUT_PLACEHOLDER
 ! 4) Settings for the hard-process generation.
 ! Handled by madgraph
 
-! 5) Higgs decay settings, let it freely decay and then filter the final states
-25:m0 = 125.0                      ! Higgs mass in GeV
-25:onMode = on                     ! Turn on all Higgs decays
-ResonanceDecayFilter:filter = on
-ResonanceDecayFilter:mothers = 25
-ResonanceDecayFilter:daughters = 22,22
+! 5) Higgs decay settings
+25:m0 = 125.0                       ! Higgs mass in GeV
+25:onMode = off                     ! Turn off all Higgs decays
+25:onIfMatch = 22 22                ! Enable only H -> gamma gamma decay
