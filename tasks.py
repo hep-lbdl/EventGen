@@ -286,7 +286,7 @@ class DelphesPythia8(
 ):
     # SLURM Configuration
     cores = 1
-    memory = "1GB"
+    memory = "2GB"
     walltime = "24:00:00"
     qos = "shared"
 
@@ -330,7 +330,6 @@ class DelphesPythia8(
         cmd = [exe, detector, process, tmp_events]
         with open(out, "w") as out_file:
             result = subprocess.call(cmd, stdout=out_file, stderr=out_file)
-
         # Move events from tmp file to final dir
         shutil.move(tmp_events, events)
 
