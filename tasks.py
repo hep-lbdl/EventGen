@@ -527,7 +527,11 @@ class PlotEvents(SkimEvents):
                     values = values.astype(int)
 
                 # Determine number of bins
-                bins = min(len(values.unique() * 2), 50)
+                finite = values.dropna()
+                if finite.min() == finite.max():
+                    bins = 1
+                else:
+                    bins = min(len(finite.unique()) * 2, 50)
 
                 # Plot histogram
                 plt.hist(values, bins=bins, alpha=0.7)
