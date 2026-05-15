@@ -166,10 +166,10 @@ class Processor(processor.ProcessorABC):
 
         good = n_photons >= 2
         # Trigger
-        trigger = ((cut_photons.pt[:, 0] > 35) & (cut_photons.pt[:, 1] > 25)) | (cut_photons.pt[:, 0] > 140)  # fmt: skip
+        trigger = ((cut_photons.pt[:, 0] > 35) & (cut_photons.pt[:, 1] > 25)) | (cut_photons.pt[:, 0] > 120)  # fmt: skip
         good = good & trigger
         # Rel pT cut
-        good = good & (cut_pt_rel1 > 0.4) & (cut_pt_rel2 > 0.3)
+        good = good & (cut_pt_rel1 > 0.35) & (cut_pt_rel2 > 0.25)
         # Myy mass window
         good = good & (cut_diphoton_mass > 105) & (cut_diphoton_mass < 160)
         # Prevent None in mask
