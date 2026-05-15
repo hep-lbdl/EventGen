@@ -242,6 +242,11 @@ class Madgraph(
             if events_target.exists():
                 continue
 
+            # Remove a stale process dir from a previous failed attempt,
+            # otherwise mg5_aMC's `output` prompts y/n and desyncs the script.
+            if os.path.exists(madgraph_target.path):
+                shutil.rmtree(madgraph_target.path)
+
             n_events = stop - start
             madgraph_config = str(madgraph_config_base)
             madgraph_config = madgraph_config.replace("SEED_PLACEHOLDER", str(self.seed + i))
