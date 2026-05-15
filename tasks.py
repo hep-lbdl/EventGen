@@ -261,20 +261,11 @@ class Madgraph(
                 ]
             )
 
-        # Connect to the cluster
+        # Connect to the cluster and run the tasks
         cluster = self.start_cluster(len(cmds))
-        client = Client(cluster)
-
-        # Use client.map to parallelize the tasks
-        futures = client.map(self.fun, cmds)
-
-        # Gather the results
-        client.gather(futures)
-
-        # Scale down and close the cluster
-        cluster.scale(0)
-        client.close()
-        cluster.close()
+        with cluster, Client(cluster) as client:
+            futures = client.map(self.fun, cmds)
+            client.gather(futures)
 
 
 class DelphesPythia8(
@@ -377,20 +368,11 @@ class DelphesPythia8(
                 ]
             )
 
-        # Connect to the cluster
+        # Connect to the cluster and run the tasks
         cluster = self.start_cluster(len(cmds))
-        client = Client(cluster)
-
-        # Use client.map to parallelize the tasks
-        futures = client.map(self.fun, cmds)
-
-        # Gather the results
-        results = client.gather(futures)
-
-        # Scale down and close the cluster
-        cluster.scale(0)
-        client.close()
-        cluster.close()
+        with cluster, Client(cluster) as client:
+            futures = client.map(self.fun, cmds)
+            client.gather(futures)
 
 
 class SkimEvents(
@@ -451,13 +433,8 @@ class SkimEvents(
 
         # Compute Payload
         cluster = self.start_cluster(1)
-        with Client(cluster) as client:
+        with cluster, Client(cluster) as client:
             (output,) = dask.compute(to_compute)
-
-        # Scale down and close the cluster
-        cluster.scale(0)
-        client.close()
-        cluster.close()
 
         output = output["all"]
 
