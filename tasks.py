@@ -187,6 +187,17 @@ class Madgraph(
 
     @property
     def walltime(self):
+        if self.process in [
+            "WlZvHv_Hyyl_600",
+            "TT_tZNtHyyN",
+            "WN_HyyN_150",
+            "WN_HyyN_200",
+            "WN_HyyN_300",
+            "WN_HyyN_600",
+            "BB_bHNbHyyN_1000_205_60",
+            "BB_bHNbHyyN_1200_205_60",
+        ]:
+            return "47:59:00"
         if self.process in ["nonres_llyy_jj"]:
             return "23:59:00"
         else:
@@ -194,7 +205,17 @@ class Madgraph(
 
     @property
     def memory(self):
-        if self.process in ["nonres_llyy_jj"]:
+        if self.process in [
+            "nonres_llyy_jj",
+            "WlZvHv_Hyyl_600",
+            "TT_tZNtHyyN",
+            "WN_HyyN_150",
+            "WN_HyyN_200",
+            "WN_HyyN_300",
+            "WN_HyyN_600",
+            "BB_bHNbHyyN_1000_205_60",
+            "BB_bHNbHyyN_1200_205_60",
+        ]:
             return "128GB"
         if self.process in ["nonres_yy_jjj"]:
             return "48GB"
