@@ -23,6 +23,62 @@ from utils.infrastructure import ClusterMixin, silentremove
 from utils.physics import parse_mg_output, parse_pythia_output, pythia_xsec_modulation
 
 
+# Heavy processes (multi-leg matching, large SUSY decays) need extra
+# walltime/memory for both direct generation and gridpack warmup.
+_MADGRAPH_LONG_PROCESSES = {
+    "WlZvHv_Hyyl_600",
+    "TT_tZNtHyyN",
+    "WN_HyyN_150",
+    "WN_HyyN_200",
+    "WN_HyyN_300",
+    "WN_HyyN_600",
+    "BB_bHNbHyyN_1000_205_60",
+    "BB_bHNbHyyN_1200_205_60",
+}
+_MADGRAPH_MEDIUM_PROCESSES = {"nonres_llyy_jj"}
+_MADGRAPH_HIGH_MEM_PROCESSES = _MADGRAPH_LONG_PROCESSES | {"nonres_llyy_jj"}
+_MADGRAPH_MEDIUM_MEM_PROCESSES = {"nonres_yy_jjj"}
+
+
+def _madgraph_walltime(process):
+    if process in _MADGRAPH_LONG_PROCESSES:
+        return "47:59:00"
+    if process in _MADGRAPH_MEDIUM_PROCESSES:
+        return "23:59:00"
+    return "09:59:00"
+
+
+def _madgraph_memory(process):
+    if process in _MADGRAPH_HIGH_MEM_PROCESSES:
+        return "128GB"
+    if process in _MADGRAPH_MEDIUM_MEM_PROCESSES:
+        return "48GB"
+    return "24GB"
+
+
+def _render_madgraph_config(
+    template,
+    *,
+    n_events,
+    seed,
+    ebeam,
+    output_dir,
+    common_model_dir,
+    common_param_dir,
+    gridpack=False,
+):
+    cfg = str(template)
+    cfg = cfg.replace("SEED_PLACEHOLDER", str(int(seed)))
+    cfg = cfg.replace("NEVENTS_PLACEHOLDER", str(int(n_events)))
+    cfg = cfg.replace("EBEAM_PLACEHOLDER", str(ebeam))
+    cfg = cfg.replace("OUTPUT_PLACEHOLDER", output_dir)
+    cfg = cfg.replace("MODEL_PLACEHOLDER", common_model_dir)
+    cfg = cfg.replace("PARAM_PLACEHOLDER", common_param_dir)
+    if gridpack:
+        cfg = cfg.rstrip() + "\nset gridpack True\n"
+    return cfg
+
+
 class BaseTask(law.Task):
     """
     Base task which provides some convenience methods
@@ -164,6 +220,86 @@ class ChunkedEventsTask(NEventsMixin):
         return list(f"{i}_with_{int(self.n_max)}" for i in range(self.n_brakets))
 
 
+class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
+    """
+    Build a Madgraph gridpack once per (process, ecm). The resulting tarball
+    bakes the matrix-element compilation, integration grid, and param_card so
+    that downstream per-chunk event generation skips those steps and only
+    runs the (fast) gridrun phase.
+    """
+
+    seed = 42
+    # Warmup nevents; MG drives grid precision via its own
+    # accuracy/points/iterations defaults, so this value is largely cosmetic.
+    n_warmup_events = 1000
+
+    cores = 16
+    qos = "shared"
+
+    @property
+    def walltime(self):
+        return _madgraph_walltime(self.process)
+
+    @property
+    def memory(self):
+        return _madgraph_memory(self.process)
+
+    def requires(self):
+        return MadgraphConfig.req(self)
+
+    @property
+    def executable(self):
+        return f"{os.getenv('MADGRAPH_DIR')}/bin/mg5_aMC"
+
+    def output(self):
+        return {
+            "config": self.local_target("config.dat"),
+            "madgraph_dir": self.local_directory_target("mg"),
+            "gridpack": self.local_target("mg/run_01_gridpack.tar.gz"),
+            "out": self.local_target("out.txt"),
+        }
+
+    @staticmethod
+    def fun(info):
+        exe, config, out = info
+        cmd = [exe, "-f", config]
+        with open(out, "w") as out_file:
+            return subprocess.call(cmd, stdout=out_file, stderr=out_file)
+
+    def run(self):
+        if self.output()["gridpack"].exists():
+            return
+
+        config_target = self.output()["config"]
+        madgraph_target = self.output()["madgraph_dir"]
+        out_target = self.output()["out"]
+
+        # Stale dir would cause mg5_aMC's `output` to prompt y/n and desync.
+        if os.path.exists(madgraph_target.path):
+            shutil.rmtree(madgraph_target.path)
+
+        rendered = _render_madgraph_config(
+            self.input().load(formatter="text"),
+            n_events=self.n_warmup_events,
+            seed=self.seed,
+            ebeam=self.ecm / 2,
+            output_dir=madgraph_target.path,
+            common_model_dir=self.common_model_dir,
+            common_param_dir=self.common_param_dir,
+            gridpack=True,
+        )
+        config_target.dump(rendered, formatter="text")
+        out_target.parent.touch()
+
+        cluster = self.start_cluster(1)
+        with cluster, Client(cluster) as client:
+            futures = client.map(
+                self.fun,
+                [[self.executable, config_target.path, out_target.path]],
+            )
+            client.gather(futures)
+
+
 class Madgraph(
     ChunkedEventsTask,
     ProcessMixin,
@@ -178,8 +314,13 @@ class Madgraph(
     cores = 1
     qos = "shared"
 
+    use_gridpack = luigi.BoolParameter(default=False)
+
     def requires(self):
-        return MadgraphConfig.req(self)
+        reqs = {"config": MadgraphConfig.req(self)}
+        if self.use_gridpack:
+            reqs["gridpack"] = MadgraphGridpack.req(self)
+        return reqs
 
     @property
     def executable(self):
@@ -187,40 +328,11 @@ class Madgraph(
 
     @property
     def walltime(self):
-        if self.process in [
-            "WlZvHv_Hyyl_600",
-            "TT_tZNtHyyN",
-            "WN_HyyN_150",
-            "WN_HyyN_200",
-            "WN_HyyN_300",
-            "WN_HyyN_600",
-            "BB_bHNbHyyN_1000_205_60",
-            "BB_bHNbHyyN_1200_205_60",
-        ]:
-            return "47:59:00"
-        if self.process in ["nonres_llyy_jj"]:
-            return "23:59:00"
-        else:
-            return "09:59:00"
+        return _madgraph_walltime(self.process)
 
     @property
     def memory(self):
-        if self.process in [
-            "nonres_llyy_jj",
-            "WlZvHv_Hyyl_600",
-            "TT_tZNtHyyN",
-            "WN_HyyN_150",
-            "WN_HyyN_200",
-            "WN_HyyN_300",
-            "WN_HyyN_600",
-            "BB_bHNbHyyN_1000_205_60",
-            "BB_bHNbHyyN_1200_205_60",
-        ]:
-            return "128GB"
-        if self.process in ["nonres_yy_jjj"]:
-            return "48GB"
-        else:
-            return "24GB"
+        return _madgraph_memory(self.process)
 
     def output(self):
         return {
@@ -244,8 +356,48 @@ class Madgraph(
 
         return result
 
+    @staticmethod
+    def gridpack_fun(info):
+        exe_dir, n_events, seed, gridpack_tar, events_path, out = info
+
+        # Fresh extraction per chunk: workers run concurrently and would
+        # otherwise collide on the GridRun_<seed>/ output dir.
+        if os.path.exists(exe_dir):
+            shutil.rmtree(exe_dir)
+        os.makedirs(exe_dir)
+
+        with open(out, "w") as out_file:
+            rc = subprocess.call(
+                ["tar", "xzf", gridpack_tar, "-C", exe_dir],
+                stdout=out_file,
+                stderr=out_file,
+            )
+            if rc != 0:
+                return rc
+            rc = subprocess.call(
+                ["./run.sh", str(int(n_events)), str(int(seed))],
+                cwd=exe_dir,
+                stdout=out_file,
+                stderr=out_file,
+            )
+            if rc != 0:
+                return rc
+
+        # run.sh drops events.lhe.gz at the extraction root; re-home it
+        # under Events/run_01/ so the output path matches non-gridpack mode.
+        final_dir = os.path.dirname(events_path)
+        os.makedirs(final_dir, exist_ok=True)
+        shutil.move(os.path.join(exe_dir, "events.lhe.gz"), events_path)
+        return 0
+
     def run(self):
-        madgraph_config_base = self.input().load(formatter="text")
+        if self.use_gridpack:
+            self._run_gridpack()
+        else:
+            self._run_direct()
+
+    def _run_direct(self):
+        madgraph_config_base = self.input()["config"].load(formatter="text")
         # Set up the tasks to compute
         cmds = []
 
@@ -269,13 +421,15 @@ class Madgraph(
                 shutil.rmtree(madgraph_target.path)
 
             n_events = stop - start
-            madgraph_config = str(madgraph_config_base)
-            madgraph_config = madgraph_config.replace("SEED_PLACEHOLDER", str(self.seed + i))
-            madgraph_config = madgraph_config.replace("NEVENTS_PLACEHOLDER", str(int(n_events)))
-            madgraph_config = madgraph_config.replace("EBEAM_PLACEHOLDER", str(self.ecm / 2))
-            madgraph_config = madgraph_config.replace("OUTPUT_PLACEHOLDER", madgraph_target.path)
-            madgraph_config = madgraph_config.replace("MODEL_PLACEHOLDER", self.common_model_dir)
-            madgraph_config = madgraph_config.replace("PARAM_PLACEHOLDER", self.common_param_dir)
+            madgraph_config = _render_madgraph_config(
+                madgraph_config_base,
+                n_events=n_events,
+                seed=self.seed + i,
+                ebeam=self.ecm / 2,
+                output_dir=madgraph_target.path,
+                common_model_dir=self.common_model_dir,
+                common_param_dir=self.common_param_dir,
+            )
             config_target.dump(madgraph_config, formatter="text")
             out_target.parent.touch()
 
@@ -291,6 +445,53 @@ class Madgraph(
         cluster = self.start_cluster(len(cmds))
         with cluster, Client(cluster) as client:
             futures = client.map(self.fun, cmds)
+            client.gather(futures)
+
+    def _run_gridpack(self):
+        gridpack_tar = self.input()["gridpack"]["gridpack"].path
+        cmds = []
+        for i, identifier, (start, stop) in zip(
+            range(len(self.identifiers)),
+            self.identifiers,
+            self.brakets,
+        ):
+            config_target = self.output()[identifier]["config"]
+            madgraph_target = self.output()[identifier]["madgraph_dir"]
+            events_target = self.output()[identifier]["events"]
+            out_target = self.output()[identifier]["out"]
+
+            if events_target.exists():
+                continue
+
+            n_events = stop - start
+            seed = self.seed + i
+
+            # Record the invocation so the chunk's `config` output exists
+            # (law uses it for completeness) and so the run is reproducible.
+            config_target.dump(
+                f"# gridpack invocation\n"
+                f"gridpack: {gridpack_tar}\n"
+                f"nevents:  {int(n_events)}\n"
+                f"seed:     {int(seed)}\n"
+                f"command:  ./run.sh {int(n_events)} {int(seed)}\n",
+                formatter="text",
+            )
+            out_target.parent.touch()
+
+            cmds.append(
+                [
+                    madgraph_target.path,
+                    n_events,
+                    seed,
+                    gridpack_tar,
+                    events_target.path,
+                    out_target.path,
+                ]
+            )
+
+        cluster = self.start_cluster(len(cmds))
+        with cluster, Client(cluster) as client:
+            futures = client.map(self.gridpack_fun, cmds)
             client.gather(futures)
 
 
