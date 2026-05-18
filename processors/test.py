@@ -13,11 +13,14 @@ class Processor(processor.ProcessorABC):
         jets = pad(events.Jet, 2)
         good = jets[:, 0].pt > 50
         good = ak.fill_none(good, False)
+        event_weight = events.Event.Weight
 
         return {
             "cutflow": {
-                "total": ak.num(good, axis=0),
-                "good": ak.sum(good),
+                "n_total": ak.num(good, axis=0),
+                "n_good": ak.sum(good),
+                "sumw_presel": ak.sum(event_weight),
+                "sumw_postsel": ak.sum(event_weight[good]),
             },
             "events": ak.zip(
                 {
