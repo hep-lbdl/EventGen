@@ -50,7 +50,8 @@ configs = {
 class ClusterMixin:
     cluster_mode = law.Parameter(default="local")
 
-    cores = 1
+    # Minimum number of threads on Perlmutter
+    cores = 2
     memory = "1GB"
     walltime = "01:00:00"
     qos = "shared"

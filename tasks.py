@@ -306,14 +306,11 @@ class Madgraph(
     ClusterMixin,
     BaseTask,
 ):
+    # SLURM Configuration
+    walltime = "24:00:00"
+
     # Base random seed
     seed = 42
-
-    # SLURM Configuration
-    # Walltime is dynamic, see below
-    cores = 1
-    qos = "shared"
-
     use_gridpack = luigi.BoolParameter(default=False)
 
     def requires(self):
@@ -329,10 +326,6 @@ class Madgraph(
     @property
     def walltime(self):
         return _madgraph_walltime(self.process)
-
-    @property
-    def memory(self):
-        return _madgraph_memory(self.process)
 
     def output(self):
         return {
@@ -503,10 +496,8 @@ class DelphesPythia8(
     BaseTask,
 ):
     # SLURM Configuration
-    cores = 1
     memory = "2GB"
     walltime = "24:00:00"
-    qos = "shared"
 
     def output(self):
         return {
