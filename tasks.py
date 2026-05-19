@@ -628,7 +628,7 @@ class DelphesPythia8(
         cluster = self.start_cluster(len(cmds))
         with cluster, Client(cluster) as client:
             futures = client.map(self.fun, cmds)
-            client.gather(futures)
+            client.gather(futures, errors="skip")
 
 
 class SkimEvents(
