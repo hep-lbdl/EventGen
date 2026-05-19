@@ -2,6 +2,8 @@ import os
 import importlib
 import subprocess
 import shutil
+import time
+import uuid
 
 import luigi
 import law
@@ -260,7 +262,6 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
     def output(self):
         return {
             "config": self.local_target("config.dat"),
-            "madgraph_dir": self.local_directory_target("mg"),
             "gridpack": self.local_target("mg/run_01_gridpack.tar.gz"),
             "out": self.local_target("out.txt"),
         }
@@ -277,19 +278,19 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
             return
 
         config_target = self.output()["config"]
-        madgraph_target = self.output()["madgraph_dir"]
         out_target = self.output()["out"]
+        madgraph_dir = self.local_path("mg")
 
         # Stale dir would cause mg5_aMC's `output` to prompt y/n and desync.
-        if os.path.exists(madgraph_target.path):
-            shutil.rmtree(madgraph_target.path)
+        if os.path.exists(madgraph_dir):
+            shutil.rmtree(madgraph_dir)
 
         rendered = _render_madgraph_config(
             self.input().load(formatter="text"),
             n_events=self.n_warmup_events,
             seed=self.seed,
             ebeam=self.ecm / 2,
-            output_dir=madgraph_target.path,
+            output_dir=madgraph_dir,
             common_model_dir=self.common_model_dir,
             common_param_dir=self.common_param_dir,
             gridpack=True,
@@ -304,7 +305,7 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
                 self.fun,
                 [[self.executable, config_target.path, out_target.path]],
             )
-            client.gather(futures)
+            client.gather(futures, errors="skip")
 
 
 class Madgraph(
@@ -339,8 +340,7 @@ class Madgraph(
         return {
             identifier: {
                 "config": self.local_target(f"{identifier}/config.dat"),
-                "madgraph_dir": self.local_directory_target(f"{identifier}/mg"),
-                "events": self.local_target(f"{identifier}/mg/Events/run_01/unweighted_events.lhe.gz"),  # fmt: skip
+                "events": self.local_target(f"{identifier}/events.lhe.gz"),
                 "out": self.local_target(f"{identifier}/out.txt"),
             }
             for identifier in self.identifiers
@@ -348,23 +348,53 @@ class Madgraph(
 
     @staticmethod
     def fun(info):
-        exe, config, out = info
+        exe, config, out, madgraph_dir, events_path = info
 
         # Process
         cmd = [exe, "-f", config]
         with open(out, "w") as out_file:
             result = subprocess.call(cmd, stdout=out_file, stderr=out_file)
 
+        if result == 0:
+            shutil.move(
+                os.path.join(madgraph_dir, "Events", "run_01", "unweighted_events.lhe.gz"),
+                events_path,
+            )
+            shutil.rmtree(madgraph_dir, ignore_errors=True)
+
         return result
 
     @staticmethod
     def gridpack_fun(info):
-        exe_dir, n_events, seed, gridpack_tar, events_path, out = info
+        exe_dir, n_events, seed, gridpack_tar, events_path, out, config_path = info
 
-        # Fresh extraction per chunk: workers run concurrently and would
-        # otherwise collide on the GridRun_<seed>/ output dir.
+        # Stub written from the dask worker so the per-chunk creates don't
+        # all serialize through the login-node MDS.
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        with open(config_path, "w") as f:
+            f.write(
+                f"# gridpack invocation\n"
+                f"gridpack: {gridpack_tar}\n"
+                f"nevents:  {n_events}\n"
+                f"seed:     {seed}\n"
+                f"command:  ./run.sh {n_events} {seed}\n"
+            )
+
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+
+        # Fresh extraction per chunk. Rename-then-rmtree dodges Lustre
+        # ENOTEMPTY races on deep MG5 SubProcesses/ trees left behind by an
+        # aborted previous attempt: the rename is one atomic MDS op, so we
+        # make forward progress even if the rmtree later flakes.
         if os.path.exists(exe_dir):
-            shutil.rmtree(exe_dir)
+            trash = f"{exe_dir}.trash.{uuid.uuid4().hex}"
+            os.rename(exe_dir, trash)
+            for attempt in range(6):
+                try:
+                    shutil.rmtree(trash)
+                    break
+                except OSError:
+                    time.sleep(2 ** attempt)
         os.makedirs(exe_dir)
 
         with open(out, "w") as out_file:
@@ -376,7 +406,7 @@ class Madgraph(
             if rc != 0:
                 return rc
             rc = subprocess.call(
-                ["./run.sh", str(int(n_events)), str(int(seed))],
+                ["./run.sh", str(n_events), str(seed)],
                 cwd=exe_dir,
                 stdout=out_file,
                 stderr=out_file,
@@ -384,11 +414,12 @@ class Madgraph(
             if rc != 0:
                 return rc
 
-        # run.sh drops events.lhe.gz at the extraction root; re-home it
-        # under Events/run_01/ so the output path matches non-gridpack mode.
+        # run.sh drops events.lhe.gz at the extraction root; move it to the
+        # task's flat events path, then drop the extracted gridpack tree.
         final_dir = os.path.dirname(events_path)
         os.makedirs(final_dir, exist_ok=True)
         shutil.move(os.path.join(exe_dir, "events.lhe.gz"), events_path)
+        shutil.rmtree(exe_dir, ignore_errors=True)
         return 0
 
     def run(self):
@@ -410,9 +441,9 @@ class Madgraph(
             self.brakets,
         ):
             config_target = outputs[identifier]["config"]
-            madgraph_target = outputs[identifier]["madgraph_dir"]
             events_target = outputs[identifier]["events"]
             out_target = outputs[identifier]["out"]
+            madgraph_dir = self.local_path(identifier, "mg")
 
             # In case the task already successfully finished an identifier
             if events_target.exists():
@@ -420,8 +451,8 @@ class Madgraph(
 
             # Remove a stale process dir from a previous failed attempt,
             # otherwise mg5_aMC's `output` prompts y/n and desyncs the script.
-            if os.path.exists(madgraph_target.path):
-                shutil.rmtree(madgraph_target.path)
+            if os.path.exists(madgraph_dir):
+                shutil.rmtree(madgraph_dir)
 
             n_events = stop - start
             madgraph_config = _render_madgraph_config(
@@ -429,7 +460,7 @@ class Madgraph(
                 n_events=n_events,
                 seed=self.seed + i,
                 ebeam=self.ecm / 2,
-                output_dir=madgraph_target.path,
+                output_dir=madgraph_dir,
                 common_model_dir=self.common_model_dir,
                 common_param_dir=self.common_param_dir,
             )
@@ -441,6 +472,8 @@ class Madgraph(
                     self.executable,
                     config_target.path,
                     out_target.path,
+                    madgraph_dir,
+                    events_target.path,
                 ]
             )
 
@@ -448,7 +481,7 @@ class Madgraph(
         cluster = self.start_cluster(len(cmds))
         with cluster, Client(cluster) as client:
             futures = client.map(self.fun, cmds)
-            client.gather(futures)
+            client.gather(futures, errors="skip")
 
     def _run_gridpack(self):
         gridpack_tar = self.input()["gridpack"]["gridpack"].path
@@ -462,43 +495,29 @@ class Madgraph(
             self.brakets,
         ):
             config_target = outputs[identifier]["config"]
-            madgraph_target = outputs[identifier]["madgraph_dir"]
             events_target = outputs[identifier]["events"]
             out_target = outputs[identifier]["out"]
+            madgraph_dir = self.local_path(identifier, "mg")
 
             if events_target.exists():
                 continue
 
-            n_events = stop - start
-            seed = self.seed + i
-
-            # Record the invocation so the chunk's `config` output exists
-            # (law uses it for completeness) and so the run is reproducible.
-            config_target.dump(
-                f"# gridpack invocation\n"
-                f"gridpack: {gridpack_tar}\n"
-                f"nevents:  {int(n_events)}\n"
-                f"seed:     {int(seed)}\n"
-                f"command:  ./run.sh {int(n_events)} {int(seed)}\n",
-                formatter="text",
-            )
-            out_target.parent.touch()
-
             cmds.append(
                 [
-                    madgraph_target.path,
-                    n_events,
-                    seed,
+                    madgraph_dir,
+                    int(stop - start),
+                    int(self.seed + i),
                     gridpack_tar,
                     events_target.path,
                     out_target.path,
+                    config_target.path,
                 ]
             )
 
         cluster = self.start_cluster(len(cmds))
         with cluster, Client(cluster) as client:
             futures = client.map(self.gridpack_fun, cmds)
-            client.gather(futures)
+            client.gather(futures, errors="skip")
 
 
 class DelphesPythia8(
