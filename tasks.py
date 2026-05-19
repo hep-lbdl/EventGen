@@ -25,7 +25,7 @@ from utils.physics import parse_mg_output, parse_pythia_output, pythia_xsec_modu
 
 # Heavy processes (multi-leg matching, large SUSY decays) need extra
 # walltime/memory for both direct generation and gridpack warmup.
-_MADGRAPH_LONG_PROCESSES = {
+_MADGRAPH_EXTRA_PROCESSES = {
     "WlZvHv_Hyyl_600",
     "TT_tZNtHyyN",
     "WN_HyyN_150",
@@ -34,26 +34,23 @@ _MADGRAPH_LONG_PROCESSES = {
     "WN_HyyN_600",
     "BB_bHNbHyyN_1000_205_60",
     "BB_bHNbHyyN_1200_205_60",
+    "nonres_llyy_jj",
+    "nonres_yy_jjj",
 }
-_MADGRAPH_MEDIUM_PROCESSES = {"nonres_llyy_jj"}
-_MADGRAPH_HIGH_MEM_PROCESSES = _MADGRAPH_LONG_PROCESSES | {"nonres_llyy_jj"}
-_MADGRAPH_MEDIUM_MEM_PROCESSES = {"nonres_yy_jjj"}
 
 
 def _madgraph_walltime(process):
-    if process in _MADGRAPH_LONG_PROCESSES:
-        return "47:59:00"
-    if process in _MADGRAPH_MEDIUM_PROCESSES:
+    if process in _MADGRAPH_EXTRA_PROCESSES:
         return "23:59:00"
-    return "09:59:00"
+    else:
+        return "09:59:00"
 
 
 def _madgraph_memory(process):
-    if process in _MADGRAPH_HIGH_MEM_PROCESSES:
+    if process in _MADGRAPH_EXTRA_PROCESSES:
         return "128GB"
-    if process in _MADGRAPH_MEDIUM_MEM_PROCESSES:
-        return "48GB"
-    return "24GB"
+    else:
+        return "24GB"
 
 
 def _render_madgraph_config(
@@ -66,6 +63,7 @@ def _render_madgraph_config(
     common_model_dir,
     common_param_dir,
     gridpack=False,
+    nb_core=None,
 ):
     cfg = str(template)
     cfg = cfg.replace("SEED_PLACEHOLDER", str(int(seed)))
@@ -74,6 +72,14 @@ def _render_madgraph_config(
     cfg = cfg.replace("OUTPUT_PLACEHOLDER", output_dir)
     cfg = cfg.replace("MODEL_PLACEHOLDER", common_model_dir)
     cfg = cfg.replace("PARAM_PLACEHOLDER", common_param_dir)
+    if nb_core is not None and int(nb_core) > 1:
+        # run_mode/nb_core are mg5 toplevel settings, so they must be set
+        # before `launch` switches the prompt into the madevent context.
+        cfg = cfg.replace(
+            "\nlaunch\n",
+            f"\nset run_mode 2\nset nb_core {int(nb_core)}\nlaunch\n",
+            1,
+        )
     if gridpack:
         cfg = cfg.rstrip() + "\nset gridpack True\n"
     return cfg
@@ -233,7 +239,7 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
     # accuracy/points/iterations defaults, so this value is largely cosmetic.
     n_warmup_events = 1000
 
-    cores = 16
+    cores = 32
     qos = "shared"
 
     @property
@@ -287,6 +293,7 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
             common_model_dir=self.common_model_dir,
             common_param_dir=self.common_param_dir,
             gridpack=True,
+            nb_core=self.cores,
         )
         config_target.dump(rendered, formatter="text")
         out_target.parent.touch()
