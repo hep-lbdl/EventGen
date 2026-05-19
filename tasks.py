@@ -401,15 +401,17 @@ class Madgraph(
         # Set up the tasks to compute
         cmds = []
 
+
+        outputs = self.output()
         for i, identifier, (start, stop) in zip(
             range(len(self.identifiers)),
             self.identifiers,
             self.brakets,
         ):
-            config_target = self.output()[identifier]["config"]
-            madgraph_target = self.output()[identifier]["madgraph_dir"]
-            events_target = self.output()[identifier]["events"]
-            out_target = self.output()[identifier]["out"]
+            config_target = outputs[identifier]["config"]
+            madgraph_target = outputs[identifier]["madgraph_dir"]
+            events_target = outputs[identifier]["events"]
+            out_target = outputs[identifier]["out"]
 
             # In case the task already successfully finished an identifier
             if events_target.exists():
@@ -450,15 +452,18 @@ class Madgraph(
     def _run_gridpack(self):
         gridpack_tar = self.input()["gridpack"]["gridpack"].path
         cmds = []
+
+
+        outputs = self.output()
         for i, identifier, (start, stop) in zip(
             range(len(self.identifiers)),
             self.identifiers,
             self.brakets,
         ):
-            config_target = self.output()[identifier]["config"]
-            madgraph_target = self.output()[identifier]["madgraph_dir"]
-            events_target = self.output()[identifier]["events"]
-            out_target = self.output()[identifier]["out"]
+            config_target = outputs[identifier]["config"]
+            madgraph_target = outputs[identifier]["madgraph_dir"]
+            events_target = outputs[identifier]["events"]
+            out_target = outputs[identifier]["out"]
 
             if events_target.exists():
                 continue
@@ -558,13 +563,18 @@ class DelphesPythia8(
 
         # Set up the tasks to compute
         cmds = []
+
+
+        outputs = self.output()
+        inputs = self.input()
+        madgraph_inputs = inputs["madgraph"] if self.has_madgraph_config else None
         for identifier, (start, stop) in zip(self.identifiers, self.brakets):
             detector_config = str(detector_config_base)
             pythia_config = str(pythia_config_base)
 
-            config_target = self.output()[identifier]["config"]
-            events_target = self.output()[identifier]["events"]
-            out_target = self.output()[identifier]["out"]
+            config_target = outputs[identifier]["config"]
+            events_target = outputs[identifier]["events"]
+            out_target = outputs[identifier]["out"]
             # In case the task already successfully finished an identifier
             if events_target.exists():
                 continue
@@ -577,8 +587,8 @@ class DelphesPythia8(
             pythia_config = pythia_config.replace("NEVENTS_PLACEHOLDER", str(int(n_events)))
             pythia_config = pythia_config.replace("ECM_PLACEHOLDER", str(self.ecm))
 
-            if self.has_madgraph_config:
-                madgraph_events = self.input()["madgraph"][identifier]["events"].path
+            if madgraph_inputs is not None:
+                madgraph_events = madgraph_inputs[identifier]["events"].path
                 pythia_config = pythia_config.replace("INPUT_PLACEHOLDER", madgraph_events)
 
             config_target.dump(pythia_config, formatter="text")
