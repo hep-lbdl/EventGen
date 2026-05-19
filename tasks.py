@@ -317,6 +317,7 @@ class Madgraph(
     # SLURM Configuration
     walltime = "24:00:00"
     memory = "2GB"
+    cores = 1
 
     # Base random seed
     seed = 42
