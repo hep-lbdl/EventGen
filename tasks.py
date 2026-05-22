@@ -2,6 +2,7 @@ import os
 import importlib
 import subprocess
 import shutil
+import tempfile
 import time
 import uuid
 
@@ -354,44 +355,38 @@ class Madgraph(
 
         os.makedirs(os.path.dirname(out), exist_ok=True)
 
-        # Fresh extraction per chunk. Rename-then-rmtree dodges Lustre
-        # ENOTEMPTY races on deep MG5 SubProcesses/ trees left behind by an
-        # aborted previous attempt: the rename is one atomic MDS op, so we
-        # make forward progress even if the rmtree later flakes.
-        if os.path.exists(exe_dir):
-            trash = f"{exe_dir}.trash.{uuid.uuid4().hex}"
-            os.rename(exe_dir, trash)
-            for attempt in range(6):
-                try:
-                    shutil.rmtree(trash)
-                    break
-                except OSError:
-                    time.sleep(2 ** attempt)
-        os.makedirs(exe_dir)
+        # Extract + run on the compute node's local storage ($TMPDIR),
+        # then move to output path. Prevents leaving 1000s of MG
+        # files on pscratch.
+        scratch_root = os.environ.get("TMPDIR") or "/tmp"
+        with tempfile.TemporaryDirectory(prefix="mg5_", dir=scratch_root) as exe_dir:
+            with open(out, "w") as out_file:
+                rc = subprocess.call(
+                    ["tar", "xzf", gridpack_tar, "-C", exe_dir],
+                    stdout=out_file,
+                    stderr=out_file,
+                )
+                if rc != 0:
+                    return rc
+                rc = subprocess.call(
+                    ["./run.sh", str(n_events), str(seed)],
+                    cwd=exe_dir,
+                    stdout=out_file,
+                    stderr=out_file,
+                )
+                if rc != 0:
+                    return rc
 
-        with open(out, "w") as out_file:
-            rc = subprocess.call(
-                ["tar", "xzf", gridpack_tar, "-C", exe_dir],
-                stdout=out_file,
-                stderr=out_file,
-            )
-            if rc != 0:
-                return rc
-            rc = subprocess.call(
-                ["./run.sh", str(n_events), str(seed)],
-                cwd=exe_dir,
-                stdout=out_file,
-                stderr=out_file,
-            )
-            if rc != 0:
-                return rc
-
-        # run.sh drops events.lhe.gz at the extraction root; move it to the
-        # task's flat events path, then drop the extracted gridpack tree.
-        final_dir = os.path.dirname(events_path)
-        os.makedirs(final_dir, exist_ok=True)
-        shutil.move(os.path.join(exe_dir, "events.lhe.gz"), events_path)
-        shutil.rmtree(exe_dir, ignore_errors=True)
+            # run.sh drops events.lhe.gz at the extraction root; move it onto
+            # the shared FS at the task's flat events path.
+            events_src = os.path.join(exe_dir, "events.lhe.gz")
+            if not os.path.isfile(events_src):
+                # run.sh exited 0 but MG5 didn't actually produce the LHE
+                # (e.g. refinement non-convergence). Treat as a failed chunk.
+                return 1
+            os.makedirs(os.path.dirname(events_path), exist_ok=True)
+            shutil.move(events_src, events_path)
+        # exe_dir is auto-cleaned by TemporaryDirectory (including on raises).
         return 0
 
     def run(self):
