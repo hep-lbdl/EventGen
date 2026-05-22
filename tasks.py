@@ -64,7 +64,6 @@ def _render_madgraph_config(
     output_dir,
     common_model_dir,
     common_param_dir,
-    gridpack=False,
     nb_core=None,
 ):
     cfg = str(template)
@@ -82,8 +81,6 @@ def _render_madgraph_config(
             f"\nset run_mode 2\nset nb_core {int(nb_core)}\nlaunch\n",
             1,
         )
-    if gridpack:
-        cfg = cfg.rstrip() + "\nset gridpack True\n"
     return cfg
 
 
@@ -293,9 +290,9 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
             output_dir=madgraph_dir,
             common_model_dir=self.common_model_dir,
             common_param_dir=self.common_param_dir,
-            gridpack=True,
             nb_core=self.cores,
         )
+        rendered = rendered.rstrip() + "\nset gridpack True\n"
         config_target.dump(rendered, formatter="text")
         out_target.parent.touch()
 
@@ -321,17 +318,9 @@ class Madgraph(
 
     # Base random seed
     seed = 42
-    use_gridpack = luigi.BoolParameter(default=False)
 
     def requires(self):
-        reqs = {"config": MadgraphConfig.req(self)}
-        if self.use_gridpack:
-            reqs["gridpack"] = MadgraphGridpack.req(self)
-        return reqs
-
-    @property
-    def executable(self):
-        return f"{os.getenv('MADGRAPH_DIR')}/bin/mg5_aMC"
+        return MadgraphGridpack.req(self)
 
     @property
     def walltime(self):
@@ -349,25 +338,7 @@ class Madgraph(
 
     @staticmethod
     def fun(info):
-        exe, config, out, madgraph_dir, events_path = info
-
-        # Process
-        cmd = [exe, "-f", config]
-        with open(out, "w") as out_file:
-            result = subprocess.call(cmd, stdout=out_file, stderr=out_file)
-
-        if result == 0:
-            shutil.move(
-                os.path.join(madgraph_dir, "Events", "run_01", "unweighted_events.lhe.gz"),
-                events_path,
-            )
-            shutil.rmtree(madgraph_dir, ignore_errors=True)
-
-        return result
-
-    @staticmethod
-    def gridpack_fun(info):
-        exe_dir, n_events, seed, gridpack_tar, events_path, out, config_path = info
+        n_events, seed, gridpack_tar, events_path, out, config_path = info
 
         # Stub written from the dask worker so the per-chunk creates don't
         # all serialize through the login-node MDS.
@@ -424,16 +395,8 @@ class Madgraph(
         return 0
 
     def run(self):
-        if self.use_gridpack:
-            self._run_gridpack()
-        else:
-            self._run_direct()
-
-    def _run_direct(self):
-        madgraph_config_base = self.input()["config"].load(formatter="text")
-        # Set up the tasks to compute
+        gridpack_tar = self.input()["gridpack"].path
         cmds = []
-
 
         outputs = self.output()
         for i, identifier, (start, stop) in zip(
@@ -444,68 +407,12 @@ class Madgraph(
             config_target = outputs[identifier]["config"]
             events_target = outputs[identifier]["events"]
             out_target = outputs[identifier]["out"]
-            madgraph_dir = self.local_path(identifier, "mg")
-
-            # In case the task already successfully finished an identifier
-            if events_target.exists():
-                continue
-
-            # Remove a stale process dir from a previous failed attempt,
-            # otherwise mg5_aMC's `output` prompts y/n and desyncs the script.
-            if os.path.exists(madgraph_dir):
-                shutil.rmtree(madgraph_dir)
-
-            n_events = stop - start
-            madgraph_config = _render_madgraph_config(
-                madgraph_config_base,
-                n_events=n_events,
-                seed=self.seed + i,
-                ebeam=self.ecm / 2,
-                output_dir=madgraph_dir,
-                common_model_dir=self.common_model_dir,
-                common_param_dir=self.common_param_dir,
-            )
-            config_target.dump(madgraph_config, formatter="text")
-            out_target.parent.touch()
-
-            cmds.append(
-                [
-                    self.executable,
-                    config_target.path,
-                    out_target.path,
-                    madgraph_dir,
-                    events_target.path,
-                ]
-            )
-
-        # Connect to the cluster and run the tasks
-        cluster = self.start_cluster(len(cmds))
-        with cluster, Client(cluster) as client:
-            futures = client.map(self.fun, cmds)
-            client.gather(futures, errors="skip")
-
-    def _run_gridpack(self):
-        gridpack_tar = self.input()["gridpack"]["gridpack"].path
-        cmds = []
-
-
-        outputs = self.output()
-        for i, identifier, (start, stop) in zip(
-            range(len(self.identifiers)),
-            self.identifiers,
-            self.brakets,
-        ):
-            config_target = outputs[identifier]["config"]
-            events_target = outputs[identifier]["events"]
-            out_target = outputs[identifier]["out"]
-            madgraph_dir = self.local_path(identifier, "mg")
 
             if events_target.exists():
                 continue
 
             cmds.append(
                 [
-                    madgraph_dir,
                     int(stop - start),
                     int(self.seed + i),
                     gridpack_tar,
@@ -517,7 +424,7 @@ class Madgraph(
 
         cluster = self.start_cluster(len(cmds))
         with cluster, Client(cluster) as client:
-            futures = client.map(self.gridpack_fun, cmds)
+            futures = client.map(self.fun, cmds)
             client.gather(futures, errors="skip")
 
 
@@ -706,11 +613,11 @@ class SkimEvents(
         df["sumw_presel"] = cutflow["sumw_presel"]
         df["sumw_postsel"] = cutflow["sumw_postsel"]
 
-        # Write cross-section info for MadGraph
+        print("Parsing cross-section info...")
+        # Get MG cross-section (computed at MadgraphGridpack build time);
         if self.has_madgraph_config:
-            one_mg_job = self.get_single_job(self.requires().input()["madgraph"])
-            mg_output = one_mg_job["out"].load()
-            mg_xsec, mg_xsec_unc = parse_mg_output(mg_output)
+            gridpack_task = self.requires().requires()["madgraph"].requires()
+            mg_xsec, mg_xsec_unc = parse_mg_output(gridpack_task.output()["out"].load())
         else:
             mg_xsec, mg_xsec_unc = np.nan, np.nan
         df["mg_xsec [fb]"], df["mg_xsec_unc [fb]"] = mg_xsec, mg_xsec_unc
