@@ -696,9 +696,16 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
         ret = {}
         ret.update(
             {
-                process: PlotEvents.req(self, process=process, n_events=2e7, **config)
+                process: PlotEvents.req(self, process=process, n_events=2e8, n_max=1e5, **config)
                 for process in [
                     "nonres_yy_jjj",
+                ]
+            }
+        )
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=2e7, **config)
+                for process in [
                     "nonres_llyy_jj",
                     "nonres_ttyy",
                     "ZpHyyA_300",
