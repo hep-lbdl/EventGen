@@ -434,6 +434,9 @@ class DelphesPythia8(
     memory = "2GB"
     walltime = "24:00:00"
 
+    # Base random seed
+    seed = 42
+
     def output(self):
         return {
             identifier: {
@@ -487,11 +490,15 @@ class DelphesPythia8(
         # Set up the tasks to compute
         cmds = []
 
-
         outputs = self.output()
         inputs = self.input()
         madgraph_inputs = inputs["madgraph"] if self.has_madgraph_config else None
-        for identifier, (start, stop) in zip(self.identifiers, self.brakets):
+
+        for i, identifier, (start, stop) in zip(
+            range(len(self.identifiers)),
+            self.identifiers,
+            self.brakets,
+        ):
             detector_config = str(detector_config_base)
             pythia_config = str(pythia_config_base)
 
@@ -509,6 +516,7 @@ class DelphesPythia8(
             n_events = stop - start
             pythia_config = pythia_config.replace("NEVENTS_PLACEHOLDER", str(int(n_events)))
             pythia_config = pythia_config.replace("ECM_PLACEHOLDER", str(self.ecm))
+            pythia_config = pythia_config.replace("SEED_PLACEHOLDER", str(self.seed + i))
 
             if madgraph_inputs is not None:
                 madgraph_events = madgraph_inputs[identifier]["events"].path
