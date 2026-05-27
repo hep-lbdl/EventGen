@@ -16,7 +16,10 @@ def to_unit(value, unit, target_unit="fb"):
 
 
 def parse_mg_output(mg_output):
-    val, _, unc, unit = mg_output.split("Cross-section :   ")[1].split("\n")[0].split()
+    # Take the last "Cross-section :" line. MG prints intermediate values
+    # during integration and the final result in the run summary; we want
+    # the latter.
+    val, _, unc, unit = mg_output.rsplit("Cross-section :   ", 1)[1].split("\n")[0].split()
     val = to_unit(float(val), unit, target_unit="fb")
     unc = to_unit(float(unc), unit, target_unit="fb")
     return val, unc
