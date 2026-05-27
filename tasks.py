@@ -585,10 +585,8 @@ class SkimEvents(
         fset = {"all": {"files": {inp["events"].path: "Delphes" for inp in inputs.values()}}}
 
         # Start Preprocessing
-        if self.step_size > 0:
-            dataset_runnable, _ = preprocess(fset, step_size=self.step_size)
-        else:
-            dataset_runnable, _ = preprocess(fset)
+        step_size = self.step_size if self.step_size > 0 else None
+        dataset_runnable, _ = preprocess(fset, step_size=step_size)
 
         # Apply to Fileset
         to_compute = apply_to_fileset(
