@@ -551,11 +551,8 @@ class SkimEvents(
     BaseTask,
 ):
     # SLURM Configuration
-    cores = 8
-    walltime = "01:00:00"
-    qos = "shared"
-    arch = "cpu"
-
+    cluster_mode = "local"
+    cores = 1
     step_size = luigi.IntParameter(default=0)
 
     @property
@@ -596,7 +593,8 @@ class SkimEvents(
         )
 
         # Compute Payload
-        cluster = self.start_cluster(1)
+        print("Starting Dask cluster and computing...")
+        cluster = self.start_cluster(128)
         with cluster, Client(cluster) as client:
             (output,) = dask.compute(to_compute)
 
@@ -607,6 +605,7 @@ class SkimEvents(
         self.output()["cutflow"].dump(cutflow, cls=NumpyEncoder)
 
         # Create dataframe from events
+        print("Creating dataframe from events...")
         events = output["events"]
         df = pd.DataFrame(events.to_numpy().data)
 
@@ -637,7 +636,7 @@ class SkimEvents(
         df["pythia_xsec [fb]"], df["pythia_xsec_unc [fb]"] = pythia_xsec, pythia_xsec_unc
         df["pythia_filter_efficiency"] = pythia_filter_efficiency
 
-        # Write events to hdf5
+        print("Writing events to hdf5...")
         df.to_hdf(
             self.output()["events"].path,
             key="events",
