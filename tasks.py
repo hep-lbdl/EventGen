@@ -20,11 +20,11 @@ from matplotlib.backends.backend_pdf import PdfPages
 import dask
 from dask.distributed import Client, wait
 from dask import delayed
+import awkward as ak
 
 from utils.numpy import NumpyEncoder
 from utils.infrastructure import ClusterMixin, silentremove
 from utils.physics import parse_mg_output, parse_pythia_output, pythia_xsec_modulation
-
 
 # Heavy processes (multi-leg matching, large SUSY decays) need extra
 # walltime/memory for both direct generation and gridpack warmup.
@@ -607,7 +607,7 @@ class SkimEvents(
         # Create dataframe from events
         print("Creating dataframe from events...")
         events = output["events"]
-        df = pd.DataFrame(events.to_numpy().data)
+        df = ak.to_dataframe(events)
 
         # add weight sum pre-selection
         df["sumw_presel"] = cutflow["sumw_presel"]
