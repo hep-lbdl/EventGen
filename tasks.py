@@ -18,7 +18,7 @@ from coffea.dataset_tools import (
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import dask
-from dask.distributed import Client
+from dask.distributed import Client, wait
 from dask import delayed
 
 from utils.numpy import NumpyEncoder
@@ -303,7 +303,7 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
                 self.fun,
                 [[self.executable, config_target.path, out_target.path]],
             )
-            client.gather(futures, errors="skip")
+            wait(futures)
 
 
 class Madgraph(
@@ -420,7 +420,7 @@ class Madgraph(
         cluster = self.start_cluster(len(cmds))
         with cluster, Client(cluster) as client:
             futures = client.map(self.fun, cmds)
-            client.gather(futures, errors="skip")
+            wait(futures)
 
 
 class DelphesPythia8(
@@ -538,7 +538,7 @@ class DelphesPythia8(
         cluster = self.start_cluster(len(cmds))
         with cluster, Client(cluster) as client:
             futures = client.map(self.fun, cmds)
-            client.gather(futures, errors="skip")
+            wait(futures)
 
 
 class SkimEvents(
