@@ -670,7 +670,9 @@ class PlotEvents(SkimEvents):
                 # Determine number of bins
                 finite = values.dropna()
                 if finite.min() == finite.max():
-                    bins = 1
+                    # Single-value column: give np.histogram a non-zero range.
+                    v = float(finite.iloc[0])
+                    bins = [v - 0.5, v + 0.5]
                 else:
                     bins = min(len(finite.unique()) * 2, 50)
 
