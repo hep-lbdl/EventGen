@@ -18,9 +18,9 @@ from coffea.dataset_tools import (
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import dask
+import dask_awkward as dak
 from dask.distributed import Client, wait
 from dask import delayed
-import awkward as ak
 
 from utils.numpy import NumpyEncoder
 from utils.infrastructure import ClusterMixin, silentremove
@@ -568,7 +568,7 @@ class SkimEvents(
     def output(self):
         return {
             "cutflow": self.local_target("cutflow.json"),
-            "events": self.local_target("skimmed.h5"),
+            "events": self.local_directory_target("events.parquet"),
         }
 
     @staticmethod
@@ -585,34 +585,27 @@ class SkimEvents(
         step_size = self.step_size if self.step_size > 0 else None
         dataset_runnable, _ = preprocess(fset, step_size=step_size)
 
-        # Apply to Fileset
+        # Apply to Fileset (lazy dask graph)
         to_compute = apply_to_fileset(
             self.processor_class(),
             dataset_runnable,
             schemaclass=DelphesSchema,
-        )
+        )["all"]
 
-        # Compute Payload
+        # Stream per-event data to parquet (one file per partition) directly
+        # from the workers, so the full array is never gathered into the driver.
+        # Build the lazy write node and evaluate it together with the cutflow
+        # reduction in a single pass over the data.
+        self.output()["events"].parent.touch()
+        write = dak.to_parquet(to_compute["events"], self.output()["events"].path, compute=False)
+
         print("Starting Dask cluster and computing...")
         cluster = self.start_cluster(128)
         with cluster, Client(cluster) as client:
-            (output,) = dask.compute(to_compute)
+            cutflow, _ = dask.compute(to_compute["cutflow"], write)
 
-        output = output["all"]
-
-        # Write cutflow to json
-        cutflow = output["cutflow"]
-        self.output()["cutflow"].dump(cutflow, cls=NumpyEncoder)
-
-        # Create dataframe from events
-        print("Creating dataframe from events...")
-        events = output["events"]
-        df = ak.to_dataframe(events)
-
-        # add weight sum pre-selection
-        df["sumw_presel"] = cutflow["sumw_presel"]
-        df["sumw_postsel"] = cutflow["sumw_postsel"]
-
+        # All per-dataset scalars (cross-sections, weight sums) live in the
+        # cutflow JSON; downstream broadcasts them per-event at read time.
         print("Parsing cross-section info...")
         # Get MG cross-section (computed at MadgraphGridpack build time);
         if self.has_madgraph_config:
@@ -620,7 +613,7 @@ class SkimEvents(
             mg_xsec, mg_xsec_unc = parse_mg_output(gridpack_task.output()["out"].load())
         else:
             mg_xsec, mg_xsec_unc = np.nan, np.nan
-        df["mg_xsec [fb]"], df["mg_xsec_unc [fb]"] = mg_xsec, mg_xsec_unc
+        cutflow["mg_xsec [fb]"], cutflow["mg_xsec_unc [fb]"] = mg_xsec, mg_xsec_unc
 
         # Write cross-section and decay filter info for Pythia
         one_pythia_job = self.get_single_job(self.input())
@@ -633,15 +626,11 @@ class SkimEvents(
             pythia_xsec *= modulation
             pythia_xsec_unc *= modulation
 
-        df["pythia_xsec [fb]"], df["pythia_xsec_unc [fb]"] = pythia_xsec, pythia_xsec_unc
-        df["pythia_filter_efficiency"] = pythia_filter_efficiency
+        cutflow["pythia_xsec [fb]"], cutflow["pythia_xsec_unc [fb]"] = pythia_xsec, pythia_xsec_unc
+        cutflow["pythia_filter_efficiency"] = pythia_filter_efficiency
 
-        print("Writing events to hdf5...")
-        df.to_hdf(
-            self.output()["events"].path,
-            key="events",
-            format="table",
-        )
+        print("Writing cutflow to json...")
+        self.output()["cutflow"].dump(cutflow, cls=NumpyEncoder)
 
 
 class PlotEvents(SkimEvents):
@@ -652,7 +641,7 @@ class PlotEvents(SkimEvents):
         return self.local_directory_target("plots.pdf")
 
     def run(self):
-        df = pd.read_hdf(self.input()["events"].path, key="events")
+        df = pd.read_parquet(self.input()["events"].path)
         # Save plots
         self.output().parent.touch()
         with PdfPages(self.output().path) as pdf:
@@ -756,16 +745,15 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
     def run(self):
         summary = {}
         for process, req in self.requires().items():
-            events = pd.read_hdf(req.input()["events"].path, stop=1)
+            cutflow = req.input()["cutflow"].load()
             event_summary = {
-                identifier: float(events[identifier].iloc[0])
+                identifier: float(cutflow[identifier])
                 for identifier in [
                     "mg_xsec [fb]",
                     "pythia_xsec [fb]",
                     "pythia_filter_efficiency",
                 ]
             }
-            cutflow = req.input()["cutflow"].load()
             summary[process] = {
                 "good": cutflow["n_good"],
                 "total": cutflow["n_total"],
