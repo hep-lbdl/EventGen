@@ -1,0 +1,38 @@
+! Pythia 8 Configuration File
+! HVT charged resonance Vc+-(34) -> X+-(6666) H(25); X->jj, H->yy. M_Y=2000, M_X=1000.
+Main:numberOfEvents = NEVENTS_PLACEHOLDER
+Main:timesAllowErrors = 3
+Init:showChangedSettings = off
+Init:showChangedParticleData = off
+Next:numberCount = 0
+Next:numberShowInfo = 0
+Next:numberShowProcess = 0
+Next:numberShowEvent = 0
+Beams:frameType = 4
+Beams:LHEF = INPUT_PLACEHOLDER
+
+! New boson X (pdg 6666). Pythia colType 0 = colour singlet.
+6666:new = X+ X- 3 3 0 1000 2.0 0.0 0.0 0.0
+6666:isResonance = on
+6666:mayDecay = on
+6666:doForceWidth = on
+6666:addChannel = on 0.20 100 2 -1   ! u d~
+6666:addChannel = on 0.20 100 2 -3   ! u s~
+6666:addChannel = on 0.20 100 4 -1   ! c d~
+6666:addChannel = on 0.20 100 4 -3   ! c s~
+6666:addChannel = on 0.20 100 2 -5   ! u b~
+
+! Resonance decay  Y -> X H (forced, BR=1)
+34:m0 = 2000
+-34:m0 = 2000
+34:mayDecay = on
+-34:mayDecay = on
+34:onMode = off
+-34:onMode = off
+34:oneChannel = on 1.0 100 25 6666
+-34:oneChannel = on 1.0 100 25 -6666
+
+! Higgs decay: H -> gamma gamma only (matched by utils.physics.pythia_xsec_modulation)
+25:m0 = 125.0
+25:onMode = off
+25:onIfMatch = 22 22

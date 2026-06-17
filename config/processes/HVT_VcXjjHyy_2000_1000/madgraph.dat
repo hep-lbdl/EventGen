@@ -1,0 +1,24 @@
+# HVT Vc resonance production (bare; decays forced in Pythia). M_Y=2000 GeV.
+# Model-A benchmark (gV=1). sigma depends only on M_Y, not M_X.
+set nb_core 1
+import model MODEL_PLACEHOLDER/Vector_Triplet_UFO
+define p = g u c d s b u~ c~ d~ s~ b~
+define j = g u c d s b u~ c~ d~ s~ b~
+generate p p > vc+
+add process p p > vc-
+output OUTPUT_PLACEHOLDER
+launch
+set nevents NEVENTS_PLACEHOLDER
+set iseed SEED_PLACEHOLDER
+set param_card rhoinputs 1 1.0
+set param_card rhoinputs 2 2000
+set param_card rhoinputs 3 1.0
+set param_card rhoinputs 4 -1.3159
+set param_card rhoinputs 5 -1.3159
+set param_card rhoinputs 6 -1.3159
+set param_card rhoinputs 7 -0.555969
+set param_card rhoinputs 8 0.0772754
+set param_card rhoinputs 9 -0.203965
+set param_card rhoinputs 10 1.0
+set ebeam1 EBEAM_PLACEHOLDER
+set ebeam2 EBEAM_PLACEHOLDER
