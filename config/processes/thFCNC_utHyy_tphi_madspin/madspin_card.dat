@@ -1,0 +1,11 @@
+# MadSpin cascade for FCNC single-top + Higgs.
+# Decays the single top inclusively (t > b W, W > all), reproducing the
+# inline thFCNC_utHyy_tphi sample (lep lep + j j W lines = W inclusive).
+# Placeholders (SEED_PLACEHOLDER, EVENTS_PLACEHOLDER) are filled per chunk
+# by the Madgraph task before MadSpin is launched.
+set spinmode madspin
+set seed SEED_PLACEHOLDER
+import EVENTS_PLACEHOLDER
+decay t > b w+, w+ > all all
+decay t~ > b~ w-, w- > all all
+launch
