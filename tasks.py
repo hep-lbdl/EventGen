@@ -339,7 +339,16 @@ class Madgraph(
 
     @staticmethod
     def fun(info):
-        n_events, seed, gridpack_tar, events_path, out, config_path = info
+        (
+            n_events,
+            seed,
+            gridpack_tar,
+            events_path,
+            out,
+            config_path,
+            madspin_exe,
+            madspin_card_tmpl,
+        ) = info
 
         # Stub written from the dask worker so the per-chunk creates don't
         # all serialize through the login-node MDS.
@@ -377,11 +386,35 @@ class Madgraph(
                 if rc != 0:
                     return rc
 
-            # run.sh drops events.lhe.gz at the extraction root; move it onto
-            # the shared FS at the task's flat events path.
-            events_src = os.path.join(exe_dir, "events.lhe.gz")
+                events_src = os.path.join(exe_dir, "events.lhe.gz")
+
+                # Optional MadSpin decay: when the process ships a
+                # madspin_card, decay the (production-only, MLM-merged) LHE
+                # here, before showering. Done post-merge so the cascade
+                # decay products never pollute the jet matching.
+                if madspin_card_tmpl is not None:
+                    if not os.path.isfile(events_src):
+                        return 1
+                    card = madspin_card_tmpl.replace("SEED_PLACEHOLDER", str(seed))
+                    card = card.replace("EVENTS_PLACEHOLDER", events_src)
+                    card_path = os.path.join(exe_dir, "madspin_card.dat")
+                    with open(card_path, "w") as card_file:
+                        card_file.write(card)
+                    rc = subprocess.call(
+                        [madspin_exe, card_path],
+                        cwd=exe_dir,
+                        stdout=out_file,
+                        stderr=out_file,
+                    )
+                    if rc != 0:
+                        return rc
+                    # MadSpin writes <input>_decayed.lhe.gz next to the input.
+                    events_src = os.path.join(exe_dir, "events_decayed.lhe.gz")
+
+            # run.sh (or MadSpin) drops the LHE at the extraction root; move it
+            # onto the shared FS at the task's flat events path.
             if not os.path.isfile(events_src):
-                # run.sh exited 0 but MG5 didn't actually produce the LHE
+                # run.sh/MadSpin exited 0 but produced no LHE
                 # (e.g. refinement non-convergence). Treat as a failed chunk.
                 return 1
             os.makedirs(os.path.dirname(events_path), exist_ok=True)
@@ -392,6 +425,17 @@ class Madgraph(
     def run(self):
         gridpack_tar = self.input()["gridpack"].path
         cmds = []
+
+        # Opt-in MadSpin: a process decays via MadSpin iff it ships a
+        # madspin_card.dat; otherwise events are left as MG5 produced them.
+        madspin_card_path = f"{self.process_config_dir}/madspin_card.dat"
+        if os.path.isfile(madspin_card_path):
+            with open(madspin_card_path) as f:
+                madspin_card_tmpl = f.read()
+            madspin_exe = f"{os.getenv('MADGRAPH_DIR')}/MadSpin/madspin"
+        else:
+            madspin_card_tmpl = None
+            madspin_exe = None
 
         outputs = self.output()
         for i, identifier, (start, stop) in zip(
@@ -414,6 +458,8 @@ class Madgraph(
                     events_target.path,
                     out_target.path,
                     config_target.path,
+                    madspin_exe,
+                    madspin_card_tmpl,
                 ]
             )
 
@@ -745,6 +791,11 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
                     "BB_bHNbHyyN_500_180_50",
                     "BB_bHNbHyyN_1000_205_60",
                     "BB_bHNbHyyN_1200_205_60",
+                    "HVT_VcXjjHyy_500_10",
+                    "HVT_VcXjjHyy_500_300",
+                    "HVT_VcXjjHyy_2000_300",
+                    "HVT_VcXjjHyy_2000_1000",
+                    "HVT_VcXjjHyy_2000_1700",
                 ]
             }
         )
