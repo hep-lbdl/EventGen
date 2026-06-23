@@ -2,7 +2,7 @@ name: madgraph
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python=3.11  # MadGraph does not yet support Python 3.12
   - ipython
   - law
   - black

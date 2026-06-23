@@ -2,7 +2,7 @@ name: eventgen
 channels:
   - conda-forge
 dependencies:
-  - python=3.12
+  - python=3.11  # MadGraph (run via mg5_aMC in this env) does not yet support Python 3.12
   - ipython
   - law
   - black
@@ -11,8 +11,8 @@ dependencies:
   - dask-jobqueue
   - coffea
   - black
-  - root=6.34  # for DelphesPythia8 executable
-  - delphes
+  - root=6.34
+  - delphes=3.5.0  # for DelphesPythia8 executable
   - pip
   - pip:
     - coffea[dask]
