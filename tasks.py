@@ -26,9 +26,21 @@ from utils.numpy import NumpyEncoder
 from utils.infrastructure import ClusterMixin, silentremove
 from utils.physics import parse_mg_output, parse_pythia_output, pythia_xsec_modulation
 
-# Heavy processes (multi-leg matching, large SUSY decays) need extra
-# walltime/memory for both direct generation and gridpack warmup.
+# Inline-decay SUSY cascade processes: need extra memory during event generation.
 _MADGRAPH_EXTRA_PROCESSES = {
+    "BB_bZNbHyyN_500_180_50",
+    "BB_bZNbHyyN_1000_205_60",
+    "BB_bZNbHyyN_1200_205_60",
+    "CC_cZNcHyyN_500_180_50",
+    "CC_cZNcHyyN_1000_205_60",
+    "CC_cZNcHyyN_1200_205_60",
+    "TT_tZNtHyyN_500_180_50",
+    "TT_tZNtHyyN_1000_205_60",
+    "TT_tZNtHyyN_1200_205_60",
+}
+
+# walltime/memory for both direct generation and gridpack warmup.
+_GRIDPACK_EXTRA_PROCESSES = _MADGRAPH_EXTRA_PROCESSES | {
     "WlZvHv_Hyyl_600",
     "TT_tZNtHyyN",
     "WN_HyyN_150",
@@ -43,14 +55,14 @@ _MADGRAPH_EXTRA_PROCESSES = {
 
 
 def _madgraph_walltime(process):
-    if process in _MADGRAPH_EXTRA_PROCESSES:
+    if process in _GRIDPACK_EXTRA_PROCESSES:
         return "23:59:00"
     else:
         return "09:59:00"
 
 
 def _madgraph_memory(process):
-    if process in _MADGRAPH_EXTRA_PROCESSES:
+    if process in _GRIDPACK_EXTRA_PROCESSES:
         return "128GB"
     else:
         return "24GB"
@@ -326,6 +338,10 @@ class Madgraph(
     @property
     def walltime(self):
         return _madgraph_walltime(self.process)
+
+    @property
+    def memory(self):
+        return "4GB" if self.process in _MADGRAPH_EXTRA_PROCESSES else "2GB"
 
     def output(self):
         return {
@@ -765,32 +781,18 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
             {
                 process: PlotEvents.req(self, process=process, n_events=4e6, **config)
                 for process in [
-                    "ggh_yy",
-                    "ttH_yy",
-                    "vbf_yy",
-                    "vh_yy",
-                    "WN_HyyN_150",
-                    "WN_HyyN_200",
-                    "WN_HyyN_300",
-                    "WN_HyyN_600",
-                    "XSH_500_100",
-                    "XSH_750_100_ll",
-                    "TT_tZNtHyyN",
-                    "ZpHyyA_200",
-                    "HH",
-                    "thFCNC_ctHyy_tcphi",
-                    "thFCNC_utHyy_tphi",
-                    "ttFCNC_tcHyy_tcphi",
-                    "ttFCNC_tuHyy_tphi",
-                    "Hl_Hyyl_150",
-                    "Hl_Hyyl_300",
-                    "Hl_Hyyl_450",
-                    "WlZvHv_Hyyl_200",
-                    "WlZvHv_Hyyl_400",
-                    "WlZvHv_Hyyl_600",
-                    "BB_bHNbHyyN_500_180_50",
-                    "BB_bHNbHyyN_1000_205_60",
-                    "BB_bHNbHyyN_1200_205_60",
+                    "XHH_260",
+                    "XHH_500",
+                    "XHH_1000",
+                    "BB_bZNbHyyN_500_180_50",
+                    "BB_bZNbHyyN_1000_205_60",
+                    "BB_bZNbHyyN_1200_205_60",
+                    "CC_cZNcHyyN_500_180_50",
+                    "CC_cZNcHyyN_1000_205_60",
+                    "CC_cZNcHyyN_1200_205_60",
+                    "TT_tZNtHyyN_500_180_50",
+                    "TT_tZNtHyyN_1000_205_60",
+                    "TT_tZNtHyyN_1200_205_60",
                     "HVT_VcXjjHyy_500_10",
                     "HVT_VcXjjHyy_500_300",
                     "HVT_VcXjjHyy_2000_300",

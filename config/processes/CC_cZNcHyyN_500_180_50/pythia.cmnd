@@ -1,0 +1,29 @@
+! Pythia 8 Configuration File
+! Generation of madgraph process
+
+! 1) Settings used in the main program.
+Main:numberOfEvents = NEVENTS_PLACEHOLDER         ! number of events to generate
+Main:timesAllowErrors = 3           ! how many aborts before run stops
+
+! 2) Settings related to output in init(), next() and stat().
+Init:showChangedSettings = off      ! list changed settings
+Init:showChangedParticleData = off  ! list changed particle data
+Next:numberCount = 0                ! print message every n events
+Next:numberShowInfo = 0             ! Disable event information printout
+Next:numberShowProcess = 0          ! Disable process record printout
+Next:numberShowEvent = 0            ! Disable event record printout
+
+! 3) Beam parameter settings. Values below agree with default ones.
+Beams:frameType = 4
+Beams:LHEF = INPUT_PLACEHOLDER
+
+! 4) Settings for the hard-process generation.
+! Handled by madgraph
+
+! 5) Higgs decay settings
+25:m0 = 125.0                       ! Higgs mass in GeV
+25:onMode = off                     ! Turn off all Higgs decays
+25:onIfMatch = 22 22                ! Enable only H -> gamma gamma decay
+
+! 6) SUSY decays
+SUSY:all = on                       ! Enable all SUSY decays

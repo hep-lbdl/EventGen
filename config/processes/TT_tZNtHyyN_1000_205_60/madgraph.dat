@@ -1,0 +1,25 @@
+# MSSM stop stop model -- one branch -> H, other -> Z (inline ME decays)
+# References:
+# https://arxiv.org/pdf/2006.05880
+# Table 2 here: https://arxiv.org/pdf/2301.10486
+# Current estimate of cross-section: xxx pb (LO only)
+
+import model MSSM_SLHA2
+
+# Specify process(es) to run
+generate p p > t1 t1~, (t1 > t n2, n2 > h01 n1), (t1~ > t~ n2, n2 > z n1)
+add process p p > t1 t1~, (t1 > t n2, n2 > z n1), (t1~ > t~ n2, n2 > h01 n1)
+
+output OUTPUT_PLACEHOLDER
+launch
+
+set nevents NEVENTS_PLACEHOLDER
+set iseed SEED_PLACEHOLDER
+
+set param_card mass 25 125
+set param_card mass 1000022 60
+set param_card mass 1000006 1000
+set param_card mass 1000023 205
+
+set ebeam1 EBEAM_PLACEHOLDER
+set ebeam2 EBEAM_PLACEHOLDER

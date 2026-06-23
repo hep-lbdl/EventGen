@@ -1,0 +1,27 @@
+# MSSM scharm scharm model -- one branch -> H, other -> Z (inline ME decays)
+# Symmetrised over which scharm gives the Higgs, analogous to TT_tZNtHyyN / BB_bZNbHyyN.
+# References:
+# https://atlas.web.cern.ch/Atlas/GROUPS/PHYSICS/PAPERS/SUSY-2018-31/
+# Current estimate of cross-section: xxx pb (LO only)
+import model MSSM_SLHA2
+
+# Define multiparticle labels (all light-flavor squarks to veto as intermediates, i.e. everything except the cl signal)
+define susylq = ul ur dl dr cr sl sr
+define susylq~ = ul~ ur~ dl~ dr~ cr~ sl~ sr~
+# Specify process(es) to run
+generate p p > cl cl~ $ go susylq susylq~ b1 b2 t1 t2 b1~ b2~ t1~ t2~, (cl > c n2, n2 > h01 n1), (cl~ > c~ n2, n2 > z n1)
+add process p p > cl cl~ $ go susylq susylq~ b1 b2 t1 t2 b1~ b2~ t1~ t2~, (cl > c n2, n2 > z n1), (cl~ > c~ n2, n2 > h01 n1)
+
+output OUTPUT_PLACEHOLDER
+launch
+
+set nevents NEVENTS_PLACEHOLDER
+set iseed SEED_PLACEHOLDER
+
+set param_card mass 25 125
+set param_card mass 1000004 1000
+set param_card mass 1000023 205
+set param_card mass 1000022 60
+
+set ebeam1 EBEAM_PLACEHOLDER
+set ebeam2 EBEAM_PLACEHOLDER
