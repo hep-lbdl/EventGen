@@ -1,0 +1,9 @@
+# MadSpin cascade for sbottom pair production.
+# Placeholders (SEED_PLACEHOLDER, EVENTS_PLACEHOLDER) are filled per chunk
+# by the Madgraph task before MadSpin is launched.
+set spinmode madspin
+set seed SEED_PLACEHOLDER
+import EVENTS_PLACEHOLDER
+decay b1 > n2 b, n2 > n1 h01
+decay b1~ > n2 b~, n2 > n1 h01
+launch

@@ -1,0 +1,11 @@
+# MadSpin cascade for chargino+neutralino associated production (WN_HyyN).
+# Placeholders (SEED_PLACEHOLDER, EVENTS_PLACEHOLDER) are filled per chunk
+# by the Madgraph task before MadSpin is launched. x1->W n1 and n2->h01 n1
+# are tree-level MSSM decays; W and h01 are left for Pythia (h01->yy filter).
+set spinmode madspin
+set seed SEED_PLACEHOLDER
+import EVENTS_PLACEHOLDER
+decay x1+ > w+ n1
+decay x1- > w- n1
+decay n2 > h01 n1
+launch
