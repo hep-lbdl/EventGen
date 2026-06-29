@@ -19,3 +19,15 @@ Beams:LHEF = INPUT_PLACEHOLDER
 
 ! 4) Settings for the hard-process generation.
 ! Handled by madgraph
+
+! 5) MLM Matching
+JetMatching:merge      = on
+JetMatching:scheme     = 1
+JetMatching:setMad     = off
+JetMatching:qCut       = 30.0
+JetMatching:nJetMax    = 3
+JetMatching:nQmatch    = 5
+JetMatching:coneRadius = 1.0
+JetMatching:etaJetMax  = 1000.0
+JetMatching:doShowerKt = off
+JetMatching:doVeto     = on
