@@ -637,6 +637,13 @@ class SkimEvents(
     def get_single_job(req_dict):
         return list(req_dict.values())[0]
 
+    @staticmethod
+    def get_complete_pythia_job(req_dict):
+        for job in req_dict.values():
+            if "PYTHIA Event and Cross Section Statistics" in job["out"].load():
+                return job
+        raise RuntimeError("No Pythia job has a complete cross-section output block")
+
     @law.decorator.safe_output
     def run(self):
         inputs = self.input()
@@ -670,6 +677,10 @@ class SkimEvents(
         print("Creating dataframe from events...")
         events = output["events"]
         df = ak.to_dataframe(events)
+        # option<bool> awkward columns land as mixed object dtype in pandas; cast them.
+        for col in df.select_dtypes("object").columns:
+            if pd.api.types.infer_dtype(df[col], skipna=True) == "boolean":
+                df[col] = df[col].fillna(False).astype(bool)
 
         # add weight sum pre-selection
         df["sumw_presel"] = cutflow["sumw_presel"]
@@ -685,18 +696,18 @@ class SkimEvents(
         df["mg_xsec [fb]"], df["mg_xsec_unc [fb]"] = mg_xsec, mg_xsec_unc
 
         # Write cross-section and decay filter info for Pythia
-        one_pythia_job = self.get_single_job(self.input())
-        pythia_out = one_pythia_job["out"].load()
-        pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(pythia_out)
+        one_pythia_job = self.get_complete_pythia_job(self.input())
+        pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(one_pythia_job["out"].load())
         if self.has_madgraph_config:
-            # Apply modulation factors (pythia PDG filter not reflected in xsec)
-            pythia_config = one_pythia_job["config"].load()
-            modulation = pythia_xsec_modulation(pythia_config)
+            modulation = pythia_xsec_modulation(one_pythia_job["config"].load())
             pythia_xsec *= modulation
             pythia_xsec_unc *= modulation
 
         df["pythia_xsec [fb]"], df["pythia_xsec_unc [fb]"] = pythia_xsec, pythia_xsec_unc
         df["pythia_filter_efficiency"] = pythia_filter_efficiency
+        
+        # Fix pandas dataframe memory layout
+        df = df.copy()
 
         print("Writing events to hdf5...")
         df.to_hdf(
@@ -781,9 +792,34 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
             {
                 process: PlotEvents.req(self, process=process, n_events=4e6, **config)
                 for process in [
+                    "ggh_yy",
+                    "ttH_yy",
+                    "vbf_yy",
+                    "vh_yy",
+                    "WN_HyyN_150",
+                    "WN_HyyN_200",
+                    "WN_HyyN_300",
+                    "WN_HyyN_600",
+                    "XSH_500_100",
+                    "XSH_750_100_ll",
                     "XHH_260",
                     "XHH_500",
                     "XHH_1000",
+                    "ZpHyyA_200",
+                    "HH",
+                    "thFCNC_ctHyy_tcphi",
+                    "thFCNC_utHyy_tphi",
+                    "ttFCNC_tcHyy_tcphi",
+                    "ttFCNC_tuHyy_tphi",
+                    "Hl_Hyyl_150",
+                    "Hl_Hyyl_300",
+                    "Hl_Hyyl_450",
+                    "WlZvHv_Hyyl_200",
+                    "WlZvHv_Hyyl_400",
+                    "WlZvHv_Hyyl_600",
+                    "BB_bHNbHyyN_500_180_50",
+                    "BB_bHNbHyyN_1000_205_60",
+                    "BB_bHNbHyyN_1200_205_60",
                     "BB_bZNbHyyN_500_180_50",
                     "BB_bZNbHyyN_1000_205_60",
                     "BB_bZNbHyyN_1200_205_60",
