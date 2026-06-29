@@ -1,0 +1,13 @@
+import model sm-no_b_mass
+define p = g u c d s b u~ c~ d~ s~ b~
+
+generate p p > a a j j j
+
+output OUTPUT_PLACEHOLDER
+launch
+
+set nevents NEVENTS_PLACEHOLDER
+set iseed SEED_PLACEHOLDER
+set ebeam1 EBEAM_PLACEHOLDER
+set ebeam2 EBEAM_PLACEHOLDER
+set ptgmin 32

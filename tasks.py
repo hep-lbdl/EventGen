@@ -825,3 +825,106 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
             }
             summary[process].update(event_summary)
         self.output().dump(summary)
+
+
+# Ordered list for MergingComparison; scheme and jet-count are encoded in the name.
+_MERGING_COMPARISON_PROCESSES = [
+    "nonres_yy_0j_nomerge",
+    "nonres_yy_1j_nomerge",
+    "nonres_yy_3j_nomerge",
+    "nonres_yy_0j_mlm",
+    "nonres_yy_1j_mlm",
+    "nonres_yy_3j_mlm",
+    "nonres_yy_0j_ckkwl",
+    "nonres_yy_1j_ckkwl",
+    "nonres_yy_3j_ckkwl",
+]
+
+# Color by jet count, line style by merging scheme.
+_JET_COLOR = {"0j": "C0", "1j": "C1", "3j": "C2"}
+_SCHEME_STYLE = {"nomerge": "-", "mlm": "--", "ckkwl": ":"}
+_META_COLS = {
+    "mg_xsec [fb]", "mg_xsec_unc [fb]",
+    "pythia_xsec [fb]", "pythia_xsec_unc [fb]",
+    "pythia_filter_efficiency", "sumw_presel", "sumw_postsel",
+    "event_weight", "event_number",
+}
+
+
+class MergingComparison(ProcessorMixin, DetectorMixin, NEventsMixin, BaseTask):
+    ecm = luigi.FloatParameter(default=13000.0)
+    n_max = luigi.IntParameter(default=1000000)
+
+    def store_parts(self):
+        return super().store_parts() + (f"ecm_{self.ecm:.2f}",)
+
+    def requires(self):
+        return {
+            p: SkimEvents.req(self, process=p, ecm=self.ecm, n_max=self.n_max)
+            for p in _MERGING_COMPARISON_PROCESSES
+        }
+
+    def output(self):
+        return self.local_target("comparison.pdf")
+
+    def run(self):
+        dfs = {
+            p: pd.read_hdf(self.input()[p]["events"].path, key="events")
+            for p in _MERGING_COMPARISON_PROCESSES
+        }
+
+        def _parse(p):
+            parts = p.split("_")
+            return parts[-2], parts[-1]  # (jet_count, scheme)
+
+        self.output().parent.touch()
+        with PdfPages(self.output().path) as pdf:
+            # Cross-section in selected phase space: pythia_xsec * (sumw_postsel / sumw_presel)
+            labels = [p.replace("nonres_yy_", "") for p in _MERGING_COMPARISON_PROCESSES]
+
+            def _sel_xsec(df):
+                eff = float(df["sumw_postsel"].iloc[0]) / float(df["sumw_presel"].iloc[0])
+                return float(df["pythia_xsec [fb]"].iloc[0]) * eff, float(df["pythia_xsec_unc [fb]"].iloc[0]) * eff
+
+            sel_xsec, sel_unc = zip(*[_sel_xsec(dfs[p]) for p in _MERGING_COMPARISON_PROCESSES])
+            sel_xsec, sel_unc = np.array(sel_xsec), np.array(sel_unc)
+
+            x = np.arange(len(labels))
+            fig, ax = plt.subplots(figsize=(11, 4))
+            ax.bar(x, sel_xsec, yerr=sel_unc, capsize=3, alpha=0.8)
+            ax.set_xticks(x)
+            ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
+            ax.set_ylabel("Cross section in selected phase space [fb]")
+            ax.set_title("σ × acceptance by process / merging scheme")
+            plt.tight_layout()
+            pdf.savefig()
+            plt.close()
+
+            # Shape comparison per variable
+            plot_cols = [c for c in dfs[_MERGING_COMPARISON_PROCESSES[0]].columns if c not in _META_COLS]
+            for col in plot_cols:
+                fig, ax = plt.subplots()
+                for p in _MERGING_COMPARISON_PROCESSES:
+                    jets, scheme = _parse(p)
+                    vals = dfs[p][col].replace([np.inf, -np.inf], np.nan).dropna()
+                    if not len(vals) or vals.dtype == object:
+                        continue
+                    finite = vals[np.isfinite(vals)]
+                    if not len(finite) or finite.min() == finite.max():
+                        continue
+                    ax.hist(
+                        finite,
+                        bins=50,
+                        density=True,
+                        histtype="step",
+                        color=_JET_COLOR[jets],
+                        linestyle=_SCHEME_STYLE[scheme],
+                        label=f"{jets} {scheme}",
+                    )
+                ax.set_xlabel(col)
+                ax.set_ylabel("Normalized")
+                ax.legend(fontsize=7, ncol=3)
+                ax.set_title(col)
+                plt.tight_layout()
+                pdf.savefig()
+                plt.close()
