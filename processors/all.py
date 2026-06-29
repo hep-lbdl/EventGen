@@ -57,8 +57,7 @@ class Processor(processor.ProcessorABC):
         event_number = events.Event.Number
 
         # event selection
-        good = jets[:, 0].pt > 10
-        good = ak.fill_none(good, False)
+        good = ak.ones_like(event_number, dtype=bool)
 
         return {
             "cutflow": {
