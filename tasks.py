@@ -637,6 +637,13 @@ class SkimEvents(
     def get_single_job(req_dict):
         return list(req_dict.values())[0]
 
+    @staticmethod
+    def get_complete_pythia_job(req_dict):
+        for job in req_dict.values():
+            if "PYTHIA Event and Cross Section Statistics" in job["out"].load():
+                return job
+        raise RuntimeError("No Pythia job has a complete cross-section output block")
+
     @law.decorator.safe_output
     def run(self):
         inputs = self.input()
@@ -670,6 +677,10 @@ class SkimEvents(
         print("Creating dataframe from events...")
         events = output["events"]
         df = ak.to_dataframe(events)
+        # option<bool> awkward columns land as mixed object dtype in pandas; cast them.
+        for col in df.select_dtypes("object").columns:
+            if pd.api.types.infer_dtype(df[col], skipna=True) == "boolean":
+                df[col] = df[col].fillna(False).astype(bool)
 
         # add weight sum pre-selection
         df["sumw_presel"] = cutflow["sumw_presel"]
@@ -685,13 +696,10 @@ class SkimEvents(
         df["mg_xsec [fb]"], df["mg_xsec_unc [fb]"] = mg_xsec, mg_xsec_unc
 
         # Write cross-section and decay filter info for Pythia
-        one_pythia_job = self.get_single_job(self.input())
-        pythia_out = one_pythia_job["out"].load()
-        pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(pythia_out)
+        one_pythia_job = self.get_complete_pythia_job(self.input())
+        pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(one_pythia_job["out"].load())
         if self.has_madgraph_config:
-            # Apply modulation factors (pythia PDG filter not reflected in xsec)
-            pythia_config = one_pythia_job["config"].load()
-            modulation = pythia_xsec_modulation(pythia_config)
+            modulation = pythia_xsec_modulation(one_pythia_job["config"].load())
             pythia_xsec *= modulation
             pythia_xsec_unc *= modulation
 
