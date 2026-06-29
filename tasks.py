@@ -705,6 +705,9 @@ class SkimEvents(
 
         df["pythia_xsec [fb]"], df["pythia_xsec_unc [fb]"] = pythia_xsec, pythia_xsec_unc
         df["pythia_filter_efficiency"] = pythia_filter_efficiency
+        
+        # Fix pandas dataframe memory layout
+        df = df.copy()
 
         print("Writing events to hdf5...")
         df.to_hdf(
