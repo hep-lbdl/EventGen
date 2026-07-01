@@ -1,4 +1,4 @@
-name: eventgen
+name: eventgen_d351
 channels:
   - conda-forge
 dependencies:
@@ -11,8 +11,8 @@ dependencies:
   - dask-jobqueue
   - coffea
   - black
-  - root=6.34
-  - delphes=3.5.0  # for DelphesPythia8 executable
+  - root
+  - delphes=3.5.1  # for DelphesPythia8 executable
   - pip
   - pip:
     - coffea[dask]

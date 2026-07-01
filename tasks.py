@@ -520,8 +520,8 @@ class DelphesPythia8(
 
     @property
     def executable(self):
-        if shutil.which("DelphesPythia8Filtered_d350"):
-            return "DelphesPythia8Filtered_d350"
+        if shutil.which("DelphesPythia8Filtered_d351"):
+            return "DelphesPythia8Filtered_d351"
         else:
             raise Exception("Did you activate the 'eventgen' conda env?")
 
