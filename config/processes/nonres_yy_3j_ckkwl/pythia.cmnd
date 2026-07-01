@@ -18,7 +18,7 @@ Beams:frameType = 4
 Beams:LHEF = INPUT_PLACEHOLDER
 
 ! 4) CKKW-L merging
-Merging:doCKKWL  = on
+Merging:doKTMerging = on
 Merging:Process  = pp>a,a
 Merging:nJetMax  = 3
 Merging:TMS      = 30
