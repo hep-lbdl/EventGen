@@ -936,22 +936,51 @@ class MergingComparison(ProcessorMixin, DetectorMixin, NEventsMixin, BaseTask):
             pdf.savefig()
             plt.close()
 
+            # keywords that indicate a mass/energy/pT/HT variable → log y
+            _LOG_Y_KEYWORDS = ("mass", "pt", "ht", "met", "energy", "m_")
+
             # Shape comparison per variable
             plot_cols = [c for c in dfs[_MERGING_COMPARISON_PROCESSES[0]].columns if c not in _META_COLS]
             for col in plot_cols:
-                fig, ax = plt.subplots()
+                # Compute shared bin edges from the union of all processes
+                all_finite = []
                 for p in _MERGING_COMPARISON_PROCESSES:
-                    jets, scheme = _parse(p)
                     vals = dfs[p][col].replace([np.inf, -np.inf], np.nan).dropna()
                     if not len(vals) or vals.dtype == object:
                         continue
+                    if vals.dtype == bool:
+                        vals = vals.astype(int)
                     finite = vals[np.isfinite(vals)]
-                    if not len(finite) or finite.min() == finite.max():
+                    if len(finite):
+                        all_finite.append(finite)
+                if not all_finite:
+                    continue
+                combined = np.concatenate([f.values for f in all_finite])
+                lo, hi = combined.min(), combined.max()
+                if lo == hi:
+                    continue
+                bins = np.linspace(lo, hi, 51)
+
+                log_y = any(kw in col.lower() for kw in _LOG_Y_KEYWORDS)
+
+                fig, ax = plt.subplots()
+                for p in _MERGING_COMPARISON_PROCESSES:
+                    jets, scheme = _parse(p)
+                    df = dfs[p]
+                    vals = df[col].replace([np.inf, -np.inf], np.nan)
+                    w = df["event_weight"]
+                    mask = vals.notna() & np.isfinite(vals)
+                    if vals.dtype == object:
+                        continue
+                    if vals.dtype == bool:
+                        vals = vals.astype(int)
+                    finite, wfinite = vals[mask], w[mask]
+                    if not len(finite):
                         continue
                     ax.hist(
                         finite,
-                        bins=50,
-                        density=True,
+                        bins=bins,
+                        weights=wfinite / wfinite.sum(),
                         histtype="step",
                         color=_JET_COLOR[jets],
                         linestyle=_SCHEME_STYLE[scheme],
@@ -959,6 +988,8 @@ class MergingComparison(ProcessorMixin, DetectorMixin, NEventsMixin, BaseTask):
                     )
                 ax.set_xlabel(col)
                 ax.set_ylabel("Normalized")
+                if log_y:
+                    ax.set_yscale("log")
                 ax.legend(fontsize=7, ncol=3)
                 ax.set_title(col)
                 plt.tight_layout()
