@@ -411,8 +411,17 @@ class Madgraph(
         return _madgraph_walltime(self.process)
 
     @property
+    def cores(self):
+        return 10 if self.process in _NLO_PROCESSES else 1
+
+    @property
     def memory(self):
-        return "4GB" if self.process in _MADGRAPH_EXTRA_PROCESSES else "2GB"
+        if self.process in _NLO_PROCESSES:
+            return "20GB"
+        if self.process in _MADGRAPH_EXTRA_PROCESSES:
+            return "4GB"
+        else:
+            return "2GB"
 
     def output(self):
         return {
