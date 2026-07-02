@@ -961,3 +961,36 @@ class RunRunze(PlotEventsWrapper):
         }
 
 
+
+class RunOther(PlotEventsWrapper):
+    """
+    Scoped-down PlotEventsWrapper: the 13 SUSY signal processes that just
+    got MLM matching added, submitted for production at n_events=4e6 each.
+    """
+
+    version = law.Parameter(default="prod_12_mlm")
+
+    def requires(self):
+        config = dict(
+            detector="ATLAS_fatjet_skimAll",
+            ecm=13000.0,
+            processor="fullmc",
+        )
+        return {
+            process: PlotEvents.req(self, process=process, n_events=4e6, **config)
+            for process in [
+                "BB_bHNbHyyN_1000_205_60",
+                "BB_bHNbHyyN_1200_205_60",
+                "BB_bHNbHyyN_500_180_50",
+                "Hl_Hyyl_150",
+                "Hl_Hyyl_300",
+                "Hl_Hyyl_450",
+                "WN_HyyN_150",
+                "WN_HyyN_200",
+                "WN_HyyN_300",
+                "WN_HyyN_600",
+                "WlZvHv_Hyyl_200",
+                "WlZvHv_Hyyl_400",
+                "WlZvHv_Hyyl_600",
+            ]
+        }
