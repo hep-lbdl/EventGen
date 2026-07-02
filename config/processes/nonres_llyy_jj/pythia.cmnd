@@ -17,5 +17,14 @@ Next:numberShowEvent = 0            ! Disable event record printout
 Beams:frameType = 4
 Beams:LHEF = INPUT_PLACEHOLDER
 
-! 4) Settings for the hard-process generation.
-! Handled by madgraph
+! 4) MLM jet matching
+JetMatching:merge      = on
+JetMatching:scheme     = 1
+JetMatching:setMad     = off
+JetMatching:qCut       = 30.0
+JetMatching:nJetMax    = 2
+JetMatching:nQmatch    = 5
+JetMatching:coneRadius = 1.0
+JetMatching:etaJetMax  = 1000.0
+JetMatching:doShowerKt = off
+JetMatching:doVeto     = on
