@@ -55,11 +55,13 @@ _GRIDPACK_EXTRA_PROCESSES = _MADGRAPH_EXTRA_PROCESSES | {
     "nonres_llyy_jj",
     "nonres_yy_jjj",
     "nonres_yy_j_nlo",
+    "nonres_llyy_j_nlo",
 }
 
 # NLO processes. Gridpack behavior is different to LO.
 _NLO_PROCESSES = {
     "nonres_yy_j_nlo",
+    "nonres_llyy_j_nlo",
 }
 
 
