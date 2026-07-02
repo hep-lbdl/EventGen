@@ -802,7 +802,7 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
                     "WN_HyyN_600",
                     "XSH_500_100",
                     "XSH_750_100_ll",
-                    "XHH_260",
+                    "XHH_280",
                     "XHH_500",
                     "XHH_1000",
                     "ZpHyyA_200",

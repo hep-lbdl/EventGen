@@ -27,7 +27,7 @@ Higgs:clipWings = on
 Higgs:wingsFac = 200                ! cut the resonance mass distribution at +/- 200 * mWidth
 
 ! mass / width of X = heavy Higgs (35)
-35:m0 = 260.0
+35:m0 = 280.0
 35:mWidth = 0.01
 35:doForceWidth = yes
 35:onMode = off
