@@ -1,0 +1,21 @@
+import model loop_sm-no_b_mass
+define p = g u c d s b u~ c~ d~ s~ b~
+
+# NLO QCD for qq-initiated diphoton with FxFx merging (0j + 1j).
+# The gg->yy box requires a separate nonres_yy_nlo run with [noborn=QED].
+generate p p > a a [QCD]
+add process p p > a a j [QCD]
+
+output OUTPUT_PLACEHOLDER
+launch
+
+set nevents NEVENTS_PLACEHOLDER
+set iseed SEED_PLACEHOLDER
+
+set ebeam1 EBEAM_PLACEHOLDER
+set ebeam2 EBEAM_PLACEHOLDER
+
+set ptgmin 32
+
+# FxFx NLO merging: embed clustering history in LHE for Pythia 8
+set ickkw 3

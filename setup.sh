@@ -66,12 +66,6 @@ action() {
         module load python
     fi
 
-    # If conda env "madgraph" does not exist create it
-    if ! conda env list | grep -q '^madgraph'; then
-        yes | conda create --name madgraph
-        yes | conda env update -n madgraph --file madgraph.yml
-    fi
-
     # Fixed absolute path (not --name) so group members can activate it
     # regardless of their own conda envs_dirs config.
     export EVENTGEN_ENV="/pscratch/sd/d/dnoll/tools/conda/eventgen"
@@ -91,7 +85,6 @@ action() {
 
     # Activate the conda environment by path
     conda activate "${EVENTGEN_ENV}"
-    echo "Using conda env '${EVENTGEN_ENV}', for madgraph NLO processes use env 'madgraph'"
 
     # law setup
     source "$( law completion )" ""

@@ -1,7 +1,10 @@
+import io
 import os
 import importlib
+import stat
 import subprocess
 import shutil
+import tarfile
 import tempfile
 import time
 import uuid
@@ -51,6 +54,12 @@ _GRIDPACK_EXTRA_PROCESSES = _MADGRAPH_EXTRA_PROCESSES | {
     "BB_bHNbHyyN_1200_205_60",
     "nonres_llyy_jj",
     "nonres_yy_jjj",
+    "nonres_yy_j_nlo",
+}
+
+# NLO processes. Gridpack behavior is different to LO.
+_NLO_PROCESSES = {
+    "nonres_yy_j_nlo",
 }
 
 
@@ -238,6 +247,54 @@ class ChunkedEventsTask(NEventsMixin):
         return list(f"{i}_with_{int(self.n_max)}" for i in range(self.n_brakets))
 
 
+_NLO_GRIDPACK_RUN_SH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "utils", "nlo_gridpack_run.sh"
+)
+
+
+def _create_nlo_gridpack(process_dir, gridpack_path):
+    """
+    Pack the compiled NLO process directory into run_01_gridpack.tar.gz.
+
+    The NLO best practice (see aMC@NLO docs) is:
+      1. Run generate_events once to set the integration grids (warmup).
+      2. Tar the process directory.
+      3. On each cluster node: extract, update the seed via SubProcesses/randinit,
+         run ./bin/generate_events --only-generation --nocompile.
+
+    Each chunk extracts to its own TMPDIR, so runs are fully independent.
+    Events/ from the warmup run is excluded to keep the tarball small.
+    """
+    with open(_NLO_GRIDPACK_RUN_SH) as f:
+        run_sh = f.read()
+
+    os.makedirs(os.path.dirname(gridpack_path), exist_ok=True)
+    abs_process_dir = os.path.abspath(process_dir)
+    abs_gridpack = os.path.abspath(gridpack_path)
+
+    # Write to a temp file first so the walk doesn't find the partial tarball
+    tmp_path = abs_gridpack + ".tmp"
+    with tarfile.open(tmp_path, "w:gz") as tf:
+        # Add run.sh at tarball root
+        info = tarfile.TarInfo(name="run.sh")
+        encoded = run_sh.encode()
+        info.size = len(encoded)
+        info.mode = stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
+        tf.addfile(info, io.BytesIO(encoded))
+
+        # Pack the process directory, excluding Events/ (warmup output not needed)
+        for root, dirs, files in os.walk(abs_process_dir):
+            rel_root = os.path.relpath(root, abs_process_dir)
+            # Skip Events/ to keep the tarball small
+            dirs[:] = [d for d in dirs if not (rel_root == "." and d == "Events")]
+            for fname in files:
+                fpath = os.path.join(root, fname)
+                arcname = os.path.join(rel_root, fname)
+                tf.add(fpath, arcname=arcname)
+
+    os.replace(tmp_path, abs_gridpack)
+
+
 class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
     """
     Build a Madgraph gridpack once per (process, ecm). The resulting tarball
@@ -276,6 +333,10 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
             "out": self.local_target("out.txt"),
         }
 
+    @property
+    def is_nlo(self):
+        return self.process in _NLO_PROCESSES
+
     @staticmethod
     def fun(info):
         exe, config, out = info
@@ -305,7 +366,9 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
             common_param_dir=self.common_param_dir,
             nb_core=self.cores,
         )
-        rendered = rendered.rstrip() + "\nset gridpack True\n"
+        if not self.is_nlo:
+            # LO gridpacks are built directly by mg5_aMC via this directive.
+            rendered = rendered.rstrip() + "\nset gridpack True\n"
         config_target.dump(rendered, formatter="text")
         out_target.parent.touch()
 
@@ -316,6 +379,12 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
                 [[self.executable, config_target.path, out_target.path]],
             )
             wait(futures)
+
+        if self.is_nlo:
+            # NLO (aMC@NLO) doesn't support the LO gridpack tarball: generate
+            # warmup events normally, then wrap the compiled process
+            # directory with a synthetic run.sh gridpack after the fact.
+            _create_nlo_gridpack(madgraph_dir, self.output()["gridpack"].path)
 
 
 class Madgraph(
