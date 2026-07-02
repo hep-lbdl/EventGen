@@ -72,20 +72,26 @@ action() {
         yes | conda env update -n madgraph --file madgraph.yml
     fi
 
-    # If conda env "eventgen" does not exist create it
-    if ! conda env list | grep -q '^eventgen'; then
-        yes | conda create --name eventgen
-        yes | conda env update -n eventgen --file eventgen.yml
+    # Fixed absolute path (not --name) so group members can activate it
+    # regardless of their own conda envs_dirs config.
+    export EVENTGEN_ENV="/pscratch/sd/d/dnoll/tools/conda/eventgen"
+
+    # If conda env does not exist yet, create it
+    if [ ! -d "${EVENTGEN_ENV}" ]; then
+        yes | conda create --prefix "${EVENTGEN_ENV}"
+        yes | conda env update --prefix "${EVENTGEN_ENV}" --file eventgen.yml
         # Install temporary Delphes fix (H->yy filter) from:
         # https://github.com/qibin2020/delphes/commit/2104fd9
-        CONDA_PREFIX="/$(conda env list | grep -Po 'eventgen\K.*' | cut -d '/' -f2-)"
-        cp /pscratch/sd/d/dnoll/projects/haxad/EventGenDelphes/bin/DelphesPythia8Filtered ${CONDA_PREFIX}/bin/
-        chmod u+x ${CONDA_PREFIX}/bin/DelphesPythia8Filtered
+        cp /pscratch/sd/d/dnoll/projects/haxad/EventGenDelphes/bin/DelphesPythia8Filtered "${EVENTGEN_ENV}/bin/"
+        chmod u+x "${EVENTGEN_ENV}/bin/DelphesPythia8Filtered"
+        chgrp -R m3246 "${EVENTGEN_ENV}"
+        chmod -R g+rX "${EVENTGEN_ENV}"
     fi
+    chmod o+x "$(dirname "${EVENTGEN_ENV}")" "$(dirname "$(dirname "${EVENTGEN_ENV}")")"
 
-    # Activate conda environment eventgen
-    conda activate eventgen
-    echo "Using conda env 'eventgen', for madgraph NLO processes use env 'madgraph'"
+    # Activate the conda environment by path
+    conda activate "${EVENTGEN_ENV}"
+    echo "Using conda env '${EVENTGEN_ENV}', for madgraph NLO processes use env 'madgraph'"
 
     # law setup
     source "$( law completion )" ""
