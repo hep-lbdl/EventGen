@@ -1,8 +1,8 @@
-name: eventgen_d351
+name: eventgen
 channels:
   - conda-forge
 dependencies:
-  - python=3.11  # MadGraph (run via mg5_aMC in this env) does not yet support Python 3.12
+  - python=3.11  # MadGraph does not yet support Python 3.12
   - ipython
   - law
   - black
