@@ -55,8 +55,8 @@ action() {
     export LAW_HOME="${this_dir}/.law"
     export LAW_CONFIG_FILE="${this_dir}/law.cfg"
 
-    # Setup software directories
-    export SOFTWARE_DIR="${this_dir}/software"
+    # Fixed absolute path for now
+    export SOFTWARE_DIR="/global/homes/d/dnoll/projects/EventGen/software"
     mkdir -p $SOFTWARE_DIR
 
     export MADGRAPH_DIR="${SOFTWARE_DIR}/${madgraph_download_file//./_}"
