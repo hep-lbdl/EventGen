@@ -939,3 +939,25 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
             }
             summary[process].update(event_summary)
         self.output().dump(summary)
+
+
+class RunRunze(PlotEventsWrapper):
+    """
+    Scoped-down PlotEventsWrapper: only nonres_yy_jjj and nonres_llyy_jj,
+    using the new MLM matching setup.
+    """
+
+    version = law.Parameter(default="prod_12_mlm")
+
+    def requires(self):
+        config = dict(
+            detector="ATLAS_fatjet_skimAll",
+            ecm=13000.0,
+            processor="fullmc",
+        )
+        return {
+            "nonres_yy_jjj": PlotEvents.req(self, process="nonres_yy_jjj", n_events=1e8, n_max=1e5, **config),
+            "nonres_llyy_jj": PlotEvents.req(self, process="nonres_llyy_jj", n_events=1e7, n_max=1e5, **config),
+        }
+
+
