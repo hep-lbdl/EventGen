@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 action() {
     # Set version of used software
-    local madgraph_download_dir="https://launchpad.net/mg5amcnlo/3.0/3.6.x/+download"
+    # Launchpad removed the 3.5.11 tarball; use the CERN LCG/GENSER mirror instead
+    local madgraph_download_dir="https://lcgpackages.web.cern.ch/tarFiles/sources/MCGeneratorsTarFiles"
     local madgraph_download_file="MG5_aMC_v3.5.11"
 
     # Set main directories
@@ -55,8 +56,7 @@ action() {
     export LAW_HOME="${this_dir}/.law"
     export LAW_CONFIG_FILE="${this_dir}/law.cfg"
 
-    # Fixed absolute path for now
-    export SOFTWARE_DIR="/global/homes/d/dnoll/projects/EventGen/software"
+    export SOFTWARE_DIR="${this_dir}/software"
     mkdir -p $SOFTWARE_DIR
 
     export MADGRAPH_DIR="${SOFTWARE_DIR}/${madgraph_download_file//./_}"

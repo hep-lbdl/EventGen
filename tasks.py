@@ -622,7 +622,6 @@ class DelphesPythia8(
 
         return result
 
-    @law.decorator.safe_output
     def run(self):
         detector_config_base = self.detector_config
         pythia_config_base = self.input()["pythia_config"].load(formatter="text")
@@ -675,7 +674,8 @@ class DelphesPythia8(
             )
 
         # Connect to the cluster and run the tasks
-        cluster = self.start_cluster(len(cmds))
+        print(len(cmds), "tasks to run on the cluster")
+        cluster = self.start_cluster(250)  # len(cmds))
         with cluster, Client(cluster) as client:
             futures = client.map(self.fun, cmds)
             wait(futures)
@@ -956,8 +956,8 @@ class RunRunze(PlotEventsWrapper):
             processor="fullmc",
         )
         return {
-            "nonres_yy_jjj": PlotEvents.req(self, process="nonres_yy_jjj", n_events=1e8, n_max=1e5, **config),
-            "nonres_llyy_jj": PlotEvents.req(self, process="nonres_llyy_jj", n_events=1e7, n_max=1e5, **config),
+            "nonres_yy_jjj": PlotEvents.req(self, process="nonres_yy_jjj", n_events=2e8, n_max=1e5, **config),
+            "nonres_llyy_jj": PlotEvents.req(self, process="nonres_llyy_jj", n_events=2e7, n_max=1e6, **config),
         }
 
 
