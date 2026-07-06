@@ -21,5 +21,38 @@ set param_card mass 1000022 60
 set param_card mass 1000006 1000
 set param_card mass 1000023 205
 
+# Decouple spectator sparticles: the model's default masses (t1 400, go 608,
+# light sleptons, ...) otherwise pollute the recomputed widths and BRs.
+set param_card mass 1000021 5000
+set param_card mass 1000001 5000
+set param_card mass 1000002 5000
+set param_card mass 1000003 5000
+set param_card mass 1000004 5000
+set param_card mass 1000005 5000
+set param_card mass 2000001 5000
+set param_card mass 2000002 5000
+set param_card mass 2000003 5000
+set param_card mass 2000004 5000
+set param_card mass 2000005 5000
+set param_card mass 2000006 5000
+# sleptons and sneutrinos (keep n2 -> n1 h / n1 Z the only open channels)
+set param_card mass 1000011 5000
+set param_card mass 1000012 5000
+set param_card mass 1000013 5000
+set param_card mass 1000014 5000
+set param_card mass 1000015 5000
+set param_card mass 1000016 5000
+set param_card mass 2000011 5000
+set param_card mass 2000013 5000
+set param_card mass 2000015 5000
+# heavier -inos
+set param_card mass 1000024 5000
+set param_card mass 1000025 5000
+set param_card mass 1000035 5000
+set param_card mass 1000037 5000
+# recompute decayed-sparticle widths for this spectrum (card defaults are stale)
+set param_card decay 1000006 Auto
+set param_card decay 1000023 Auto
+
 set ebeam1 EBEAM_PLACEHOLDER
 set ebeam2 EBEAM_PLACEHOLDER
