@@ -617,6 +617,11 @@ class DelphesPythia8(
         cmd = [exe, detector, process, tmp_events]
         with open(out, "w") as out_file:
             result = subprocess.call(cmd, stdout=out_file, stderr=out_file)
+        if result != 0:
+            # Crashed run (e.g. Delphes segfault): a partial tmp file must not
+            # become the final target, law would consider the chunk complete.
+            silentremove(tmp_events)
+            return result
         # Move events from tmp file to final dir
         shutil.move(tmp_events, events)
 
