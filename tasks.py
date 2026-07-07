@@ -986,6 +986,37 @@ class RunRunze(PlotEventsWrapper):
 
 
 
+class RunPythiaOnly(PlotEventsWrapper):
+    """
+    Scoped-down PlotEventsWrapper: the Pythia-only samples. Regenerated after
+    the per-chunk Random:seed fix -- without it all chunks of a process were
+    identical generator events (only Delphes' time-based smearing differed).
+    """
+
+    version = law.Parameter(default="prod_12_mlm")
+
+    def requires(self):
+        config = dict(
+            detector="ATLAS_fatjet_skimAll",
+            ecm=13000.0,
+            processor="fullmc",
+        )
+        return {
+            process: PlotEvents.req(self, process=process, n_events=4e6, **config)
+            for process in [
+                "ggh_yy",
+                "ttH_yy",
+                "vbf_yy",
+                "vh_yy",
+                "XSH_500_100",
+                "XSH_750_100_ll",
+                "XHH_300",
+                "XHH_500",
+                "XHH_1000",
+            ]
+        }
+
+
 class RunOther(PlotEventsWrapper):
     """
     Scoped-down PlotEventsWrapper: the 13 SUSY signal processes that just
