@@ -44,12 +44,14 @@ _MADGRAPH_EXTRA_PROCESSES = {
 
 # walltime/memory for both direct generation and gridpack warmup.
 _GRIDPACK_EXTRA_PROCESSES = _MADGRAPH_EXTRA_PROCESSES | {
+    "WlZvHv_Hyyl_400",
     "WlZvHv_Hyyl_600",
     "TT_tZNtHyyN",
     "WN_HyyN_150",
     "WN_HyyN_200",
     "WN_HyyN_300",
     "WN_HyyN_600",
+    "BB_bHNbHyyN_500_180_50",
     "BB_bHNbHyyN_1000_205_60",
     "BB_bHNbHyyN_1200_205_60",
     "nonres_llyy_jj",
@@ -62,6 +64,25 @@ _GRIDPACK_EXTRA_PROCESSES = _MADGRAPH_EXTRA_PROCESSES | {
 _NLO_PROCESSES = {
     "nonres_yy_j_nlo",
     "nonres_llyy_j_nlo",
+}
+
+# Their 1M-event LO chunks OOM at 2-4GB: the extracted gridpack plus the
+# accumulating LHE live in the node's RAM-backed /tmp.
+_MADGRAPH_BIG_CHUNK_PROCESSES = {
+    "BB_bHNbHyyN_1000_205_60",
+    "BB_bHNbHyyN_1200_205_60",
+    "BB_bHNbHyyN_500_180_50",
+    "BB_bZNbHyyN_1000_205_60",
+    "BB_bZNbHyyN_1200_205_60",
+    "BB_bZNbHyyN_500_180_50",
+    "CC_cZNcHyyN_1000_205_60",
+    "CC_cZNcHyyN_1200_205_60",
+    "CC_cZNcHyyN_500_180_50",
+    "TT_tZNtHyyN_1000_205_60",
+    "TT_tZNtHyyN_1200_205_60",
+    "TT_tZNtHyyN_500_180_50",
+    "WlZvHv_Hyyl_400",
+    "WlZvHv_Hyyl_600",
 }
 
 
@@ -314,11 +335,15 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
     # accuracy/points/iterations defaults, so this value is largely cosmetic.
     n_warmup_events = 1000
 
-    cores = 32
+    cores = 64
     qos = "shared"
 
     @property
     def walltime(self):
+        # NLO warmup (FKS matrix elements + integration for O(100) born
+        # processes) exceeds 24h; shared QOS allows up to 2 days.
+        if self.is_nlo:
+            return "47:59:00"
         return _madgraph_walltime(self.process)
 
     @property
@@ -423,6 +448,8 @@ class Madgraph(
     def memory(self):
         if self.process in _NLO_PROCESSES:
             return "20GB"
+        if self.process in _MADGRAPH_BIG_CHUNK_PROCESSES:
+            return "8GB"
         if self.process in _MADGRAPH_EXTRA_PROCESSES:
             return "4GB"
         else:
