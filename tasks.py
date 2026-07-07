@@ -1107,3 +1107,100 @@ class RunOther(PlotEventsWrapper):
         return ret
 
 
+class GenerateDataset(PlotEventsWrapper):
+    """
+    The full dataset in one wrapper. version_prod_12_all is a symlink tree
+    collecting each process's outputs from the version it was actually
+    produced in (rule: prod_12_mlm_rest > prod_12_mlm > prod_12, nonres
+    from dev_12_mlm_2; see Run Log). All requirements are complete there;
+    running this only (re)builds the summary.
+    """
+
+    version = law.Parameter(default="prod_12_all")
+    processor = law.Parameter(default="fullmc")
+
+    def requires(self):
+        config = dict(
+            detector="ATLAS_fatjet_skimAll",
+            ecm=13000.0,
+            processor="fullmc",
+        )
+        ret = {}
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=2e8, n_max=1e5, **config)
+                for process in [
+                    "nonres_yy_jjj",
+                ]
+            }
+        )
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=2e7, **config)
+                for process in [
+                    "nonres_llyy_jj",
+                    "nonres_ttyy",
+                    "ZpHyyA_300",
+                    "ZpHyyA_400",
+                    "ZpHyyA_500",
+                ]
+            }
+        )
+        # CC produced in 100k chunks (MG gridpack refine under-delivers at 1M)
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=4e6, n_max=1e5, **config)
+                for process in [
+                    "CC_cZNcHyyN_500_180_50",
+                    "CC_cZNcHyyN_1000_205_60",
+                    "CC_cZNcHyyN_1200_205_60",
+                ]
+            }
+        )
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=4e6, **config)
+                for process in [
+                    "ggh_yy",
+                    "ttH_yy",
+                    "vbf_yy",
+                    "vh_yy",
+                    "WN_HyyN_150",
+                    "WN_HyyN_200",
+                    "WN_HyyN_300",
+                    "WN_HyyN_600",
+                    "XSH_500_100",
+                    "XSH_750_100_ll",
+                    "XHH_300",
+                    "XHH_500",
+                    "XHH_1000",
+                    "ZpHyyA_200",
+                    "HH",
+                    "thFCNC_ctHyy_tcphi",
+                    "thFCNC_utHyy_tphi",
+                    "ttFCNC_tcHyy_tcphi",
+                    "ttFCNC_tuHyy_tphi",
+                    "Hl_Hyyl_150",
+                    "Hl_Hyyl_300",
+                    "Hl_Hyyl_450",
+                    "WlZvHv_Hyyl_200",
+                    "WlZvHv_Hyyl_400",
+                    "WlZvHv_Hyyl_600",
+                    "BB_bHNbHyyN_500_180_50",
+                    "BB_bHNbHyyN_1200_205_60",
+                    "BB_bZNbHyyN_500_180_50",
+                    "BB_bZNbHyyN_1000_205_60",
+                    "BB_bZNbHyyN_1200_205_60",
+                    "TT_tZNtHyyN_500_180_50",
+                    "TT_tZNtHyyN_1000_205_60",
+                    "TT_tZNtHyyN_1200_205_60",
+                    "HVT_VcXjjHyy_500_10",
+                    "HVT_VcXjjHyy_500_300",
+                    "HVT_VcXjjHyy_2000_300",
+                    "HVT_VcXjjHyy_2000_1000",
+                    "HVT_VcXjjHyy_2000_1700",
+                ]
+            }
+        )
+        return ret
+
