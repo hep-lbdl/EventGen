@@ -1023,7 +1023,7 @@ class RunOther(PlotEventsWrapper):
     got MLM matching added, submitted for production at n_events=4e6 each.
     """
 
-    version = law.Parameter(default="prod_12_mlm")
+    version = law.Parameter(default="prod_12_mlm_rest")
 
     def requires(self):
         config = dict(
@@ -1031,18 +1031,20 @@ class RunOther(PlotEventsWrapper):
             ecm=13000.0,
             processor="fullmc",
         )
-        return {
+        # Submitted the remaining tasks twice:
+        # - via slurm for prod_12_mlm_rest
+        # - via jupyter for prod_12_mlm
+        ret = {}
+        ret.update(
+            {
             process: PlotEvents.req(self, process=process, n_events=4e6, **config)
             for process in [
-                "BB_bHNbHyyN_1000_205_60",
-                "BB_bHNbHyyN_1200_205_60",
                 "BB_bHNbHyyN_500_180_50",
+                # "BB_bHNbHyyN_1000_205_60", -> throw away
+                "BB_bHNbHyyN_1200_205_60",
                 "BB_bZNbHyyN_1000_205_60",
                 "BB_bZNbHyyN_1200_205_60",
                 "BB_bZNbHyyN_500_180_50",
-                "CC_cZNcHyyN_1000_205_60",
-                "CC_cZNcHyyN_1200_205_60",
-                "CC_cZNcHyyN_500_180_50",
                 "TT_tZNtHyyN_1000_205_60",
                 "TT_tZNtHyyN_1200_205_60",
                 "TT_tZNtHyyN_500_180_50",
@@ -1054,7 +1056,27 @@ class RunOther(PlotEventsWrapper):
                 # "WN_HyyN_300",
                 # "WN_HyyN_600",
                 # "WlZvHv_Hyyl_200",
-                "WlZvHv_Hyyl_400",
-                "WlZvHv_Hyyl_600",
             ]
         }
+        )
+        ret.update(
+            {
+            process: PlotEvents.req(self, process=process, n_events=4e6, n_max=1e5, **config)
+            for process in [
+                "CC_cZNcHyyN_1000_205_60",
+                "CC_cZNcHyyN_1200_205_60",
+                "CC_cZNcHyyN_500_180_50",
+            ]
+        }   )
+        ret.update(
+            {
+            process: PlotEvents.req(self, process=process, n_events=8e6, **config)
+            for process in [
+                "WlZvHv_Hyyl_400",
+                # "WlZvHv_Hyyl_600",  -> throw away
+            ]
+            }
+        )    
+        return ret
+
+
