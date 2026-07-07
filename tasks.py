@@ -270,6 +270,10 @@ def _create_nlo_gridpack(process_dir, gridpack_path):
     with open(_NLO_GRIDPACK_RUN_SH) as f:
         run_sh = f.read()
 
+    # Crashed warmup:
+    if not os.path.isfile(os.path.join(process_dir, "bin", "generate_events")):
+        raise RuntimeError(f"NLO warmup incomplete, not packing: {process_dir}")
+
     os.makedirs(os.path.dirname(gridpack_path), exist_ok=True)
     abs_process_dir = os.path.abspath(process_dir)
     abs_gridpack = os.path.abspath(gridpack_path)
@@ -381,6 +385,9 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
                 [[self.executable, config_target.path, out_target.path]],
             )
             wait(futures)
+            results = client.gather(futures)
+        if any(results):
+            raise RuntimeError(f"gridpack warmup exited with {results[0]}")
 
         if self.is_nlo:
             # NLO (aMC@NLO) doesn't support the LO gridpack tarball: generate
@@ -561,6 +568,12 @@ class Madgraph(
         with cluster, Client(cluster) as client:
             futures = client.map(self.fun, cmds)
             wait(futures)
+            results = client.gather(futures)
+        if any(results):
+            # Fail loudly: otherwise luigi marks the task done and downstream
+            # tasks die later on the missing chunk targets.
+            n_bad = sum(1 for r in results if r)
+            raise RuntimeError(f"{n_bad} of {len(results)} Madgraph chunks failed")
 
 
 class DelphesPythia8(
@@ -684,6 +697,12 @@ class DelphesPythia8(
         with cluster, Client(cluster) as client:
             futures = client.map(self.fun, cmds)
             wait(futures)
+            results = client.gather(futures)
+        if any(results):
+            # Fail loudly: otherwise luigi marks the task done and downstream
+            # tasks die later on the missing chunk targets.
+            n_bad = sum(1 for r in results if r)
+            raise RuntimeError(f"{n_bad} of {len(results)} DelphesPythia8 chunks failed")
 
 
 class SkimEvents(
