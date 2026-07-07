@@ -1,5 +1,9 @@
 ! 1) Settings used in the main program.
 Main:numberOfEvents = NEVENTS_PLACEHOLDER  ! number of events to generate
+! Chunk-unique random seed; without it every chunk generates the
+! identical event sequence (Pythia default seed).
+Random:setSeed = on
+Random:seed = SEED_PLACEHOLDER
 Main:timesAllowErrors = 3                  ! how many aborts before run stops
 
 ! 2) Settings related to output in init(), next() and stat().

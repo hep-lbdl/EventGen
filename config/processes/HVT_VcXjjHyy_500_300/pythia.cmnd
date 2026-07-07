@@ -1,6 +1,10 @@
 ! Pythia 8 Configuration File
 ! HVT charged resonance Vc+-(34) -> X+-(6666) H(25); X->jj, H->yy. M_Y=500, M_X=300.
 Main:numberOfEvents = NEVENTS_PLACEHOLDER
+! Chunk-unique random seed; without it every chunk generates the
+! identical event sequence (Pythia default seed).
+Random:setSeed = on
+Random:seed = SEED_PLACEHOLDER
 Main:timesAllowErrors = 3
 Init:showChangedSettings = off
 Init:showChangedParticleData = off
