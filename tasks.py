@@ -942,6 +942,7 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
             summary[process].update(event_summary)
         self.output().dump(summary)
 
+
 class RunNLO(PlotEventsWrapper):
     """
     Scoped-down PlotEventsWrapper: only nonres_yy_j_nlo and nonres_llyy_j_nlo
