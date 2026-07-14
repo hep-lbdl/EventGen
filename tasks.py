@@ -1029,7 +1029,6 @@ class RunRunze(PlotEventsWrapper):
         }
 
 
-
 class RunPythiaOnly(PlotEventsWrapper):
     """
     Scoped-down PlotEventsWrapper: the Pythia-only samples. Regenerated after
