@@ -55,11 +55,15 @@ _GRIDPACK_EXTRA_PROCESSES = _MADGRAPH_EXTRA_PROCESSES | {
     "nonres_llyy_jj",
     "nonres_yy_jjj",
     "nonres_yy_j_nlo",
+    "nonres_llyy_j_nlo",
+    "nonres_llyy_j_nlo_lowres",
 }
 
 # NLO processes. Gridpack behavior is different to LO.
 _NLO_PROCESSES = {
     "nonres_yy_j_nlo",
+    "nonres_llyy_j_nlo",
+    "nonres_llyy_j_nlo_lowres",
 }
 
 
@@ -72,7 +76,7 @@ def _madgraph_walltime(process):
 
 def _madgraph_memory(process):
     if process in _GRIDPACK_EXTRA_PROCESSES:
-        return "128GB"
+        return "48GB"
     else:
         return "24GB"
 
@@ -410,7 +414,14 @@ class Madgraph(
 
     @property
     def memory(self):
-        return "4GB" if self.process in _MADGRAPH_EXTRA_PROCESSES else "2GB"
+        if self.process in _NLO_PROCESSES:
+            return "32GB"
+        if self.process in _MADGRAPH_BIG_CHUNK_PROCESSES:
+            return "8GB"
+        if self.process in _MADGRAPH_EXTRA_PROCESSES:
+            return "6GB"
+        else:
+            return "3GB"
 
     def output(self):
         return {
@@ -887,7 +898,7 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
                     "WlZvHv_Hyyl_400",
                     "WlZvHv_Hyyl_600",
                     "BB_bHNbHyyN_500_180_50",
-                    "BB_bHNbHyyN_1000_205_60",
+                    # "BB_bHNbHyyN_1000_205_60",  # thrown away, not regenerated in prod_12_mlm_rest
                     "BB_bHNbHyyN_1200_205_60",
                     "BB_bZNbHyyN_500_180_50",
                     "BB_bZNbHyyN_1000_205_60",
@@ -930,3 +941,22 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
             }
             summary[process].update(event_summary)
         self.output().dump(summary)
+
+class RunNLO(PlotEventsWrapper):
+    """
+    Scoped-down PlotEventsWrapper: only nonres_yy_j_nlo and nonres_llyy_j_nlo
+    using the new MLM matching setup.
+    """
+
+    version = law.Parameter(default="dev_12_mlm")  # Run slurm
+
+    def requires(self):
+        config = dict(
+            detector="ATLAS_fatjet_skimAll",
+            ecm=13000.0,
+            processor="fullmc",
+        )
+        return {
+            "nonres_yy_j_nlo": PlotEvents.req(self, process="nonres_yy_j_nlo", n_events=2e8, n_max=1e5, **config),
+            "nonres_llyy_j_nlo": PlotEvents.req(self, process="nonres_llyy_j_nlo", n_events=2e7, n_max=1e5, **config),
+        }
