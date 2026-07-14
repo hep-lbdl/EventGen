@@ -399,8 +399,6 @@ class Madgraph(
 ):
     # SLURM Configuration
     walltime = "24:00:00"
-    memory = "2GB"
-    cores = 1
 
     # Base random seed
     seed = 42
@@ -413,15 +411,17 @@ class Madgraph(
         return _madgraph_walltime(self.process)
 
     @property
+    def cores(self):
+        return 10 if self.process in _NLO_PROCESSES else 1
+
+    @property
     def memory(self):
         if self.process in _NLO_PROCESSES:
-            return "32GB"
-        if self.process in _MADGRAPH_BIG_CHUNK_PROCESSES:
-            return "8GB"
+            return "20GB"
         if self.process in _MADGRAPH_EXTRA_PROCESSES:
-            return "6GB"
+            return "4GB"
         else:
-            return "3GB"
+            return "2GB"
 
     def output(self):
         return {
