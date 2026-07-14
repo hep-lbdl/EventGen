@@ -81,9 +81,14 @@ class ClusterMixin:
             cluster = LocalCluster(32, threads_per_worker=8, memory_limit="12GiB")
         elif self.cluster_mode == "slurm":
             cluster = SLURMCluster(
-                cores=self.cores,
+                # One dask slot per job so payloads never share a memory
+                # cgroup; self.cores sizes the Slurm CPU request instead.
+                cores=1,
+                job_cpu=self.cores,
                 memory=self.memory,
                 walltime=self.walltime,
+                # Name jobs <Task>-<process>
+                job_name=f"{type(self).__name__}-{getattr(self, 'process', 'na')}",
                 job_extra_directives=[f"--qos={self.qos}", f"-C {self.arch}"]
                 + self.log_dir,
             )
