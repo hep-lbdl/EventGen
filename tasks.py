@@ -66,6 +66,23 @@ _NLO_PROCESSES = {
     "nonres_llyy_j_nlo",
 }
 
+_MADGRAPH_BIG_CHUNK_PROCESSES = {
+    "BB_bHNbHyyN_1000_205_60",
+    "BB_bHNbHyyN_1200_205_60",
+    "BB_bHNbHyyN_500_180_50",
+    "BB_bZNbHyyN_1000_205_60",
+    "BB_bZNbHyyN_1200_205_60",
+    "BB_bZNbHyyN_500_180_50",
+    "CC_cZNcHyyN_1000_205_60",
+    "CC_cZNcHyyN_1200_205_60",
+    "CC_cZNcHyyN_500_180_50",
+    "TT_tZNtHyyN_1000_205_60",
+    "TT_tZNtHyyN_1200_205_60",
+    "TT_tZNtHyyN_500_180_50",
+    "WlZvHv_Hyyl_400",
+    "WlZvHv_Hyyl_600",
+}
+
 # Their 1M-event LO chunks OOM at 2-4GB: the extracted gridpack plus the
 # accumulating LHE live in the node's RAM-backed /tmp.
 _MADGRAPH_BIG_CHUNK_PROCESSES = {
@@ -1203,4 +1220,3 @@ class GenerateDataset(PlotEventsWrapper):
             }
         )
         return ret
-
