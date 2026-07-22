@@ -56,6 +56,7 @@ class ClusterMixin:
     walltime = "01:00:00"
     qos = "shared"
     arch = "cpu"
+    account = "m3246"
 
     @property
     def log_dir(self):
@@ -88,8 +89,12 @@ class ClusterMixin:
                 memory=self.memory,
                 walltime=self.walltime,
                 # Name jobs <Task>-<process>
-                job_name=f"{type(self).__name__}-{getattr(self, 'process', 'na')}",
-                job_extra_directives=[f"--qos={self.qos}", f"-C {self.arch}"]
+                job_name=f"{type(self).__name__}-{self.process}",
+                job_extra_directives=[
+                    f"--qos={self.qos}",
+                    f"-C {self.arch}",
+                    f"--account={self.account}",
+                ]
                 + self.log_dir,
             )
             cluster.adapt(minimum=1, maximum=n_nodes)
