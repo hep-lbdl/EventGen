@@ -56,14 +56,18 @@ _GRIDPACK_EXTRA_PROCESSES = _MADGRAPH_EXTRA_PROCESSES | {
     "nonres_yy_jjj",
     "nonres_yy_j_nlo",
     "nonres_llyy_j_nlo",
-    "nonres_llyy_j_nlo_lowres",
+    "nonres_vvyy_j_nlo",
+    "nonres_lvyy_j_nlo",
 }
 
 # NLO processes. Gridpack behavior is different to LO.
 _NLO_PROCESSES = {
     "nonres_yy_j_nlo",
+    # llyy/vvyy/lvyy were one combined `ll ll` process (~1286 FKS channels); split
+    # by topology they integrate separately and concurrently.
     "nonres_llyy_j_nlo",
-    "nonres_llyy_j_nlo_lowres",
+    "nonres_vvyy_j_nlo",
+    "nonres_lvyy_j_nlo",
 }
 
 
@@ -91,6 +95,8 @@ def _render_madgraph_config(
     common_model_dir,
     common_param_dir,
     nb_core=None,
+    cluster_size=None,
+    cluster_walltime=None,
 ):
     cfg = str(template)
     cfg = cfg.replace("SEED_PLACEHOLDER", str(int(seed)))
@@ -99,9 +105,22 @@ def _render_madgraph_config(
     cfg = cfg.replace("OUTPUT_PLACEHOLDER", output_dir)
     cfg = cfg.replace("MODEL_PLACEHOLDER", common_model_dir)
     cfg = cfg.replace("PARAM_PLACEHOLDER", common_param_dir)
-    if nb_core is not None and int(nb_core) > 1:
-        # run_mode/nb_core are mg5 toplevel settings, so they must be set
-        # before `launch` switches the prompt into the madevent context.
+    if cluster_size is not None:
+        # Submit madgraph FKS channels as their own Slurm jobs
+        cfg = cfg.replace(
+            "\nlaunch\n",
+            "\nset run_mode 1\n"
+            "set cluster_type slurm\n"
+            "set cluster_queue None\n"
+            f"set cluster_size {int(cluster_size)}\n"
+            f"set cluster_walltime {int(cluster_walltime)}\n"
+            "set cluster_temp_path None\n"
+            "set cluster_nb_retry 3\n"
+            "launch\n",
+            1,
+        )
+    elif nb_core is not None and int(nb_core) > 1:
+        # Calculate madgraph FKS channels all on this one processor
         cfg = cfg.replace(
             "\nlaunch\n",
             f"\nset run_mode 2\nset nb_core {int(nb_core)}\nlaunch\n",
@@ -315,6 +334,20 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
     cores = 32
     qos = "shared"
 
+    # NLO: how MG splits and submits the FKS channels itself.
+    mg_cluster_size = 150
+    mg_cluster_walltime = 2820
+
+    @property
+    def mg_env(self):
+        # MG's sbatch cannot pass -C/--qos/--account; sbatch reads them from the env.
+        env = os.environ.copy()
+        env["SBATCH_CONSTRAINT"] = self.arch
+        env["SBATCH_QOS"] = self.qos
+        if self.account:
+            env["SBATCH_ACCOUNT"] = self.account
+        return env
+
     @property
     def walltime(self):
         return _madgraph_walltime(self.process)
@@ -343,10 +376,12 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
 
     @staticmethod
     def fun(info):
-        exe, config, out = info
-        cmd = [exe, "-f", config]
-        with open(out, "w") as out_file:
-            return subprocess.call(cmd, stdout=out_file, stderr=out_file)
+        exe, config, out, env = info
+        # Append: a rerun must not wipe the log of the run it is retrying.
+        with open(out, "a") as out_file:
+            return subprocess.call(
+                [exe, "-f", config], stdout=out_file, stderr=out_file, env=env
+            )
 
     def run(self):
         if self.output()["gridpack"].exists():
@@ -369,6 +404,8 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
             common_model_dir=self.common_model_dir,
             common_param_dir=self.common_param_dir,
             nb_core=self.cores,
+            cluster_size=self.mg_cluster_size if self.is_nlo else None,
+            cluster_walltime=self.mg_cluster_walltime,
         )
         if not self.is_nlo:
             # LO gridpacks are built directly by mg5_aMC via this directive.
@@ -380,9 +417,13 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
         with cluster, Client(cluster) as client:
             futures = client.map(
                 self.fun,
-                [[self.executable, config_target.path, out_target.path]],
+                [[self.executable, config_target.path, out_target.path, self.mg_env]],
             )
-            wait(futures)
+            (rc,) = client.gather(futures)
+        if rc != 0:
+            # Fail loudly: otherwise a warmup that never integrated gets packed into
+            # a gridpack that only errors out downstream (see out.txt for the cause).
+            raise RuntimeError(f"mg5_aMC warmup failed (exit {rc}) for {self.process}")
 
         if self.is_nlo:
             # NLO (aMC@NLO) doesn't support the LO gridpack tarball: generate
@@ -945,8 +986,9 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
 
 class RunNLO(PlotEventsWrapper):
     """
-    Scoped-down PlotEventsWrapper: only nonres_yy_j_nlo and nonres_llyy_j_nlo
-    using the new MLM matching setup.
+    Scoped-down PlotEventsWrapper: only nonres_yy_j_nlo and nonres_lepllepyy_j_nlo
+    using the new MLM matching setup. the NLO processes. llyy/vvyy/lvyy cover the
+    Z->ll, Z->vv and W->lv topologies and build concurrently.
     """
 
     version = law.Parameter(default="dev_12_mlm")  # Run slurm
@@ -957,7 +999,17 @@ class RunNLO(PlotEventsWrapper):
             ecm=13000.0,
             processor="fullmc",
         )
-        return {
+        ret = {
             "nonres_yy_j_nlo": PlotEvents.req(self, process="nonres_yy_j_nlo", n_events=2e8, n_max=1e5, **config),
-            "nonres_llyy_j_nlo": PlotEvents.req(self, process="nonres_llyy_j_nlo", n_events=2e7, n_max=1e5, **config),
         }
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=1e6, n_max=1e5, **config)
+                for process in [
+                    "nonres_llyy_j_nlo",
+                    "nonres_vvyy_j_nlo",
+                    "nonres_lvyy_j_nlo",
+                ]
+            }
+        )
+        return ret
