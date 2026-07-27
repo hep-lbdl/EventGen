@@ -9,6 +9,7 @@ dependencies:
   - pytables
   - dask==2024.8.2
   - dask-jobqueue
+  - dask-awkward
   - coffea
   - black
   - root
