@@ -48,6 +48,11 @@ action() {
     # Use the GEN_OUT in your script
     echo "Using output directory: $GEN_OUT"
 
+    # Convenience symlink to the output directory
+    if [[ -L "${this_dir}/output" || ! -e "${this_dir}/output" ]]; then
+        ln -sfn "$GEN_OUT" "${this_dir}/output"
+    fi
+
     # Set code and law area
     export GEN_CODE="${this_dir}"
     export GEN_SLURM="${GEN_OUT}/slurm"
