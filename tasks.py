@@ -63,8 +63,6 @@ _GRIDPACK_EXTRA_PROCESSES = _MADGRAPH_EXTRA_PROCESSES | {
 # NLO processes. Gridpack behavior is different to LO.
 _NLO_PROCESSES = {
     "nonres_yy_j_nlo",
-    # llyy/vvyy/lvyy were one combined `ll ll` process (~1286 FKS channels); split
-    # by topology they integrate separately and concurrently.
     "nonres_llyy_j_nlo",
     "nonres_vvyy_j_nlo",
     "nonres_lvyy_j_nlo",
@@ -95,8 +93,6 @@ def _render_madgraph_config(
     common_model_dir,
     common_param_dir,
     nb_core=None,
-    cluster_size=None,
-    cluster_walltime=None,
 ):
     cfg = str(template)
     cfg = cfg.replace("SEED_PLACEHOLDER", str(int(seed)))
@@ -105,22 +101,7 @@ def _render_madgraph_config(
     cfg = cfg.replace("OUTPUT_PLACEHOLDER", output_dir)
     cfg = cfg.replace("MODEL_PLACEHOLDER", common_model_dir)
     cfg = cfg.replace("PARAM_PLACEHOLDER", common_param_dir)
-    if cluster_size is not None:
-        # Submit madgraph FKS channels as their own Slurm jobs
-        cfg = cfg.replace(
-            "\nlaunch\n",
-            "\nset run_mode 1\n"
-            "set cluster_type slurm\n"
-            "set cluster_queue None\n"
-            f"set cluster_size {int(cluster_size)}\n"
-            f"set cluster_walltime {int(cluster_walltime)}\n"
-            "set cluster_temp_path None\n"
-            "set cluster_nb_retry 3\n"
-            "launch\n",
-            1,
-        )
-    elif nb_core is not None and int(nb_core) > 1:
-        # Calculate madgraph FKS channels all on this one processor
+    if nb_core is not None and int(nb_core) > 1:
         cfg = cfg.replace(
             "\nlaunch\n",
             f"\nset run_mode 2\nset nb_core {int(nb_core)}\nlaunch\n",
@@ -334,20 +315,6 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
     cores = 32
     qos = "shared"
 
-    # NLO: how MG splits and submits the FKS channels itself.
-    mg_cluster_size = 150
-    mg_cluster_walltime = 2820
-
-    @property
-    def mg_env(self):
-        # MG's sbatch cannot pass -C/--qos/--account; sbatch reads them from the env.
-        env = os.environ.copy()
-        env["SBATCH_CONSTRAINT"] = self.arch
-        env["SBATCH_QOS"] = self.qos
-        if self.account:
-            env["SBATCH_ACCOUNT"] = self.account
-        return env
-
     @property
     def walltime(self):
         return _madgraph_walltime(self.process)
@@ -376,12 +343,10 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
 
     @staticmethod
     def fun(info):
-        exe, config, out, env = info
+        exe, config, out = info
         # Append: a rerun must not wipe the log of the run it is retrying.
         with open(out, "a") as out_file:
-            return subprocess.call(
-                [exe, "-f", config], stdout=out_file, stderr=out_file, env=env
-            )
+            return subprocess.call([exe, "-f", config], stdout=out_file, stderr=out_file)
 
     def run(self):
         if self.output()["gridpack"].exists():
@@ -404,8 +369,6 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
             common_model_dir=self.common_model_dir,
             common_param_dir=self.common_param_dir,
             nb_core=self.cores,
-            cluster_size=self.mg_cluster_size if self.is_nlo else None,
-            cluster_walltime=self.mg_cluster_walltime,
         )
         if not self.is_nlo:
             # LO gridpacks are built directly by mg5_aMC via this directive.
@@ -417,7 +380,7 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
         with cluster, Client(cluster) as client:
             futures = client.map(
                 self.fun,
-                [[self.executable, config_target.path, out_target.path, self.mg_env]],
+                [[self.executable, config_target.path, out_target.path]],
             )
             (rc,) = client.gather(futures)
         if rc != 0:
@@ -818,7 +781,9 @@ class SkimEvents(
 
         # Write cross-section and decay filter info for Pythia
         one_pythia_job = self.get_complete_pythia_job(self.input())
-        pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(one_pythia_job["out"].load())
+        pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(
+            one_pythia_job["out"].load()
+        )
         if self.has_madgraph_config:
             modulation = pythia_xsec_modulation(one_pythia_job["config"].load())
             pythia_xsec *= modulation
@@ -826,7 +791,7 @@ class SkimEvents(
 
         df["pythia_xsec [fb]"], df["pythia_xsec_unc [fb]"] = pythia_xsec, pythia_xsec_unc
         df["pythia_filter_efficiency"] = pythia_filter_efficiency
-        
+
         # Fix pandas dataframe memory layout
         df = df.copy()
 
@@ -939,7 +904,6 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
                     "WlZvHv_Hyyl_400",
                     "WlZvHv_Hyyl_600",
                     "BB_bHNbHyyN_500_180_50",
-                    # "BB_bHNbHyyN_1000_205_60",  # thrown away, not regenerated in prod_12_mlm_rest
                     "BB_bHNbHyyN_1200_205_60",
                     "BB_bZNbHyyN_500_180_50",
                     "BB_bZNbHyyN_1000_205_60",
@@ -1000,7 +964,9 @@ class RunNLO(PlotEventsWrapper):
             processor="fullmc",
         )
         ret = {
-            "nonres_yy_j_nlo": PlotEvents.req(self, process="nonres_yy_j_nlo", n_events=2e8, n_max=1e5, **config),
+            "nonres_yy_j_nlo": PlotEvents.req(
+                self, process="nonres_yy_j_nlo", n_events=2e8, n_max=1e5, **config
+            ),
         }
         ret.update(
             {
