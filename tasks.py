@@ -939,3 +939,37 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
             }
             summary[process].update(event_summary)
         self.output().dump(summary)
+
+
+class RunNLO(PlotEventsWrapper):
+    """
+    Scoped-down PlotEventsWrapper: only nonres_yy_j_nlo and nonres_lepllepyy_j_nlo
+    using the new MLM matching setup. the NLO processes. llyy/vvyy/lvyy cover the
+    Z->ll, Z->vv and W->lv topologies and build concurrently.
+    """
+
+    version = law.Parameter(default="dev_12_mlm")  # Run slurm
+
+    def requires(self):
+        config = dict(
+            detector="ATLAS_fatjet_skimAll",
+            ecm=13000.0,
+            processor="fullmc",
+        )
+        ret = {}
+        # ret.update(
+        #    {
+        #     "nonres_yy_j_nlo": PlotEvents.req(self, process="nonres_yy_j_nlo", n_events=2e8, n_max=1e5, **config),
+        #    }
+        # )
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=1e6, n_max=1e5, **config)
+                for process in [
+                    "nonres_llyy_j_nlo",
+                    "nonres_vvyy_j_nlo",
+                    "nonres_lvyy_j_nlo",
+                ]
+            }
+        )
+        return ret
