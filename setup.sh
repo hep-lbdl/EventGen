@@ -112,6 +112,11 @@ action() {
         cd $this_dir
     fi
 
+    # Point Madgraph at the conda FastJet (required for NLO/FxFx)
+    local mg_config="${MADGRAPH_DIR}/input/mg5_configuration.txt"
+    sed -i "/^fastjet = /d" "$mg_config"
+    echo "fastjet = ${CONDA_PREFIX}/bin/fastjet-config" >> "$mg_config"
+
     export PYTHIA_DIR="${CONDA_PREFIX}"
     export DELPHES_DIR="${CONDA_PREFIX}"
 }
