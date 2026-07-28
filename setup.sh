@@ -53,6 +53,11 @@ action() {
         ln -sfn "$GEN_OUT" "${this_dir}/output"
     fi
 
+    # Temp dir for gridpack extraction (optionally set in .config).
+    if [[ -n $TMPDIR ]]; then
+        mkdir -p "$TMPDIR"
+    fi
+
     # Set code and law area
     export GEN_CODE="${this_dir}"
     export GEN_SLURM="${GEN_OUT}/slurm"
