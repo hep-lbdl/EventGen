@@ -1,11 +1,11 @@
 import model loop_sm-no_b_mass
 define p = g u c d s b u~ c~ d~ s~ b~
 
-# NLO QCD, Z/gamma* -> l+ l- (charged dilepton) + 2 photons, FxFx (0j + 1j).
-generate p p > e- e+ a a [QCD]
-add process p p > e- e+ a a j [QCD]
-add process p p > mu- mu+ a a [QCD]
-add process p p > mu- mu+ a a j [QCD]
+# NLO QCD, Z -> nu nu~ (invisible) + 2 photons, FxFx (0j + 1j).
+generate p p > ve ve~ a a [QCD]
+add process p p > ve ve~ a a j [QCD]
+add process p p > vm vm~ a a [QCD]
+add process p p > vm vm~ a a j [QCD]
 
 output OUTPUT_PLACEHOLDER
 launch
