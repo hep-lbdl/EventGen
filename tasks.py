@@ -56,12 +56,16 @@ _GRIDPACK_EXTRA_PROCESSES = _MADGRAPH_EXTRA_PROCESSES | {
     "nonres_yy_jjj",
     "nonres_yy_j_nlo",
     "nonres_llyy_j_nlo",
+    "nonres_vvyy_j_nlo",
+    "nonres_lvyy_j_nlo",
 }
 
 # NLO processes. Gridpack behavior is different to LO.
 _NLO_PROCESSES = {
     "nonres_yy_j_nlo",
     "nonres_llyy_j_nlo",
+    "nonres_vvyy_j_nlo",
+    "nonres_lvyy_j_nlo",
 }
 
 
@@ -74,7 +78,7 @@ def _madgraph_walltime(process):
 
 def _madgraph_memory(process):
     if process in _GRIDPACK_EXTRA_PROCESSES:
-        return "128GB"
+        return "48GB"
     else:
         return "24GB"
 
@@ -98,8 +102,6 @@ def _render_madgraph_config(
     cfg = cfg.replace("MODEL_PLACEHOLDER", common_model_dir)
     cfg = cfg.replace("PARAM_PLACEHOLDER", common_param_dir)
     if nb_core is not None and int(nb_core) > 1:
-        # run_mode/nb_core are mg5 toplevel settings, so they must be set
-        # before `launch` switches the prompt into the madevent context.
         cfg = cfg.replace(
             "\nlaunch\n",
             f"\nset run_mode 2\nset nb_core {int(nb_core)}\nlaunch\n",
@@ -342,9 +344,9 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
     @staticmethod
     def fun(info):
         exe, config, out = info
-        cmd = [exe, "-f", config]
-        with open(out, "w") as out_file:
-            return subprocess.call(cmd, stdout=out_file, stderr=out_file)
+        # Append: a rerun must not wipe the log of the run it is retrying.
+        with open(out, "a") as out_file:
+            return subprocess.call([exe, "-f", config], stdout=out_file, stderr=out_file)
 
     def run(self):
         if self.output()["gridpack"].exists():
@@ -380,7 +382,11 @@ class MadgraphGridpack(ProcessMixin, ClusterMixin, BaseTask):
                 self.fun,
                 [[self.executable, config_target.path, out_target.path]],
             )
-            wait(futures)
+            (rc,) = client.gather(futures)
+        if rc != 0:
+            # Fail loudly: otherwise a warmup that never integrated gets packed into
+            # a gridpack that only errors out downstream (see out.txt for the cause).
+            raise RuntimeError(f"mg5_aMC warmup failed (exit {rc}) for {self.process}")
 
         if self.is_nlo:
             # NLO (aMC@NLO) doesn't support the LO gridpack tarball: generate
@@ -775,7 +781,9 @@ class SkimEvents(
 
         # Write cross-section and decay filter info for Pythia
         one_pythia_job = self.get_complete_pythia_job(self.input())
-        pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(one_pythia_job["out"].load())
+        pythia_xsec, pythia_xsec_unc, pythia_filter_efficiency = parse_pythia_output(
+            one_pythia_job["out"].load()
+        )
         if self.has_madgraph_config:
             modulation = pythia_xsec_modulation(one_pythia_job["config"].load())
             pythia_xsec *= modulation
@@ -783,7 +791,7 @@ class SkimEvents(
 
         df["pythia_xsec [fb]"], df["pythia_xsec_unc [fb]"] = pythia_xsec, pythia_xsec_unc
         df["pythia_filter_efficiency"] = pythia_filter_efficiency
-        
+
         # Fix pandas dataframe memory layout
         df = df.copy()
 
@@ -896,7 +904,6 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
                     "WlZvHv_Hyyl_400",
                     "WlZvHv_Hyyl_600",
                     "BB_bHNbHyyN_500_180_50",
-                    "BB_bHNbHyyN_1000_205_60",
                     "BB_bHNbHyyN_1200_205_60",
                     "BB_bZNbHyyN_500_180_50",
                     "BB_bZNbHyyN_1000_205_60",
@@ -939,3 +946,36 @@ class PlotEventsWrapper(ProcessorMixin, BaseTask):
             }
             summary[process].update(event_summary)
         self.output().dump(summary)
+
+
+class RunNLO(PlotEventsWrapper):
+    """
+    Scoped-down PlotEventsWrapper: only nonres_yy_j_nlo and nonres_lepllepyy_j_nlo
+    using the new MLM matching setup. the NLO processes. llyy/vvyy/lvyy cover the
+    Z->ll, Z->vv and W->lv topologies and build concurrently.
+    """
+
+    version = law.Parameter(default="dev_12_mlm")  # Run slurm
+
+    def requires(self):
+        config = dict(
+            detector="ATLAS_fatjet_skimAll",
+            ecm=13000.0,
+            processor="fullmc",
+        )
+        ret = {
+            "nonres_yy_j_nlo": PlotEvents.req(
+                self, process="nonres_yy_j_nlo", n_events=2e8, n_max=1e5, **config
+            ),
+        }
+        ret.update(
+            {
+                process: PlotEvents.req(self, process=process, n_events=1e6, n_max=1e5, **config)
+                for process in [
+                    "nonres_llyy_j_nlo",
+                    "nonres_vvyy_j_nlo",
+                    "nonres_lvyy_j_nlo",
+                ]
+            }
+        )
+        return ret
