@@ -24,3 +24,9 @@ set ptgmin 32
 
 # FxFx NLO merging: embed clustering history in LHE for Pythia 8
 set ickkw 3
+
+# FxFx jet definition: kT with R=1. ptj must stay below half the merging
+# scale (JetMatching:qCut in pythia.cmnd) and match JetMatching:qCutME.
+set jetalgo 1.0
+set jetradius 1.0
+set ptj 10

@@ -18,7 +18,25 @@ Beams:frameType = 4
 Beams:LHEF = INPUT_PLACEHOLDER
 
 ! 4) FxFx NLO jet merging (aMC@NLO + Pythia 8)
-JetMatching:merge    = on
-JetMatching:doFxFx   = on
-JetMatching:qCutME   = 30
-JetMatching:nJetMax  = 1
+JetMatching:merge      = on
+JetMatching:doFxFx     = on
+JetMatching:scheme     = 1
+JetMatching:setMad     = off
+JetMatching:qCut       = 30.0     ! merging scale
+JetMatching:qCutME     = 10.0     ! ME jet cut, = run_card ptj
+JetMatching:coneRadius = 1.0
+JetMatching:etaJetMax  = 1000.0
+JetMatching:nJetMax    = 1
+
+! 5) MC@NLO showering of aMC@NLO events
+Beams:setProductionScalesFromLHEF = on
+SpaceShower:pTmaxMatch      = 1
+SpaceShower:rapidityOrder   = off
+TimeShower:pTmaxMatch       = 1
+TimeShower:dampenBeamRecoil = off
+TimeShower:globalRecoil     = on
+TimeShower:nMaxGlobalRecoil = 1
+TimeShower:globalRecoilMode = 2
+TimeShower:nMaxGlobalBranch = 1
+TimeShower:nPartonsInBorn   = -1
+TimeShower:limitPTmaxGlobal = on
